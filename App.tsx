@@ -8,36 +8,26 @@ import { FIREBASE_AUTH } from './FirebaseConfig';
 
 const Stack = createNativeStackNavigator();
 
-const InsideStack = createNativeStackNavigator();
-
-function InsideLayout() {
-  return (
-    <InsideStack.Navigator>
-      <InsideStack.Screen name='home' component={Home}/>
-    </InsideStack.Navigator>
-   );
-}
-
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
-  useEffect(()=>{
+  useEffect(() => {
     onAuthStateChanged(FIREBASE_AUTH, (user) => {
-      setUser(user)
-    })
-  },[])
+      setUser(user);
+    });
+  }, []);
+
   return (
-   <NavigationContainer>
+    <NavigationContainer>
       <Stack.Navigator initialRouteName='Login'>
         {user ? (
-          <Stack.Screen name='Inside' component={InsideLayout} options={{headerShown: false}}/>
+          <Stack.Screen name='Home'>
+            {(props) => <Home {...props} setUser={setUser} />}
+          </Stack.Screen>
         ) : (
-          <Stack.Screen name='Login' component={Login} options={{headerShown: false}}/>
+          <Stack.Screen name='Login' component={Login} options={{ headerShown: false }} />
         )}
-        
       </Stack.Navigator>
-   </NavigationContainer>
+    </NavigationContainer>
   );
 }
-
-
