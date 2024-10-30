@@ -1,3 +1,4 @@
+//Login.tsx
 import { View, KeyboardAvoidingView, Text, StyleSheet, TextInput, Button, ActivityIndicator, Image } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { FIREBASE_AUTH } from '../../FirebaseConfig';
