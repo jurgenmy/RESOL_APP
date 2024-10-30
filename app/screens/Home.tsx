@@ -1,9 +1,11 @@
 // Home.tsx
 import { View, Text, Button, StyleSheet, Modal, TextInput, TouchableOpacity, FlatList } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationProp } from '@react-navigation/native';
-import { FIREBASE_AUTH } from '../../FirebaseConfig';
+import { FIREBASE_AUTH, FIREBASE_DB } from '../../FirebaseConfig';
 import { Picker } from '@react-native-picker/picker';
+import { User } from 'firebase/auth';
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 
 interface RouterProps {
   navigation: NavigationProp<any, any>;
@@ -14,18 +16,35 @@ const Home = ({ navigation, setUser }: RouterProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [editingTaskIndex, setEditingTaskIndex] = useState<number | null>(null);
-  const [task, setTask] = useState({ nombre: '', descripcion: '', resolucion: '', estado: 'en espera' });
-  const [tasks, setTasks] = useState<{ nombre: string; descripcion: string; resolucion: string; estado: string }[]>([]);
+  const [task, setTask] = useState({ nombre: '', descripcion: '', resolucion: '', estado: 'en espera', prioridad: 'sin prioridad' });
+  const [tasks, setTasks] = useState<{ id: string; nombre: string; descripcion: string; resolucion: string; estado: string; prioridad: string }[]>([]);
+  const user = FIREBASE_AUTH.currentUser;
 
-  const addOrUpdateTask = () => {
+  useEffect(() => {
+    if (user) fetchTasks();
+  }, [user]);
+
+  const fetchTasks = async () => {
+    const tasksRef = collection(FIREBASE_DB, 'tasks');
+    const q = query(tasksRef, where('userId', '==', user?.uid));
+    const querySnapshot = await getDocs(q);
+    const userTasks = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as typeof tasks;
+    setTasks(userTasks);
+  };
+
+  const addOrUpdateTask = async () => {
     if (editingTaskIndex !== null) {
+      const taskToUpdate = tasks[editingTaskIndex];
+      const taskRef = doc(FIREBASE_DB, 'tasks', taskToUpdate.id);
+      await updateDoc(taskRef, { ...task, userId: user?.uid });
       const updatedTasks = [...tasks];
-      updatedTasks[editingTaskIndex] = task;
+      updatedTasks[editingTaskIndex] = { ...taskToUpdate, ...task };
       setTasks(updatedTasks);
     } else {
-      setTasks([...tasks, task]);
+      const newTaskRef = await addDoc(collection(FIREBASE_DB, 'tasks'), { ...task, userId: user?.uid });
+      setTasks([...tasks, { ...task, id: newTaskRef.id }]);
     }
-    setTask({ nombre: '', descripcion: '', resolucion: '', estado: 'en espera' });
+    setTask({ nombre: '', descripcion: '', resolucion: '', estado: 'en espera', prioridad: 'sin prioridad' });
     setEditingTaskIndex(null);
     setModalVisible(false);
   };
@@ -36,15 +55,14 @@ const Home = ({ navigation, setUser }: RouterProps) => {
     setModalVisible(true);
   };
 
-  const deleteTask = (index: number) => {
-    const updatedTasks = tasks.filter((_, i) => i !== index);
-    setTasks(updatedTasks);
+  const deleteTask = async (index: number) => {
+    const taskToDelete = tasks[index];
+    await deleteDoc(doc(FIREBASE_DB, 'tasks', taskToDelete.id));
+    setTasks(tasks.filter((_, i) => i !== index));
   };
 
   const signOut = () => {
-    FIREBASE_AUTH.signOut().then(() => {
-      setUser(null);
-    });
+    FIREBASE_AUTH.signOut().then(() => setUser(null));
   };
 
   return (
@@ -59,13 +77,14 @@ const Home = ({ navigation, setUser }: RouterProps) => {
             <Text style={styles.taskText}>Descripción: {item.descripcion}</Text>
             <Text style={styles.taskText}>Resolución: {item.resolucion}</Text>
             <Text style={styles.taskText}>Estado: {item.estado}</Text>
+            <Text style={styles.taskText}>Prioridad: {item.prioridad}</Text>
             <View style={styles.taskButtons}>
               <Button title="Editar" onPress={() => editTask(index)} color="#008080" />
               <Button title="Eliminar" onPress={() => deleteTask(index)} color="#FF6347" />
             </View>
           </View>
         )}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={(item) => item.id}
       />
       <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.addButton}>
         <Text style={styles.addButtonText}>Agregar Tarea</Text>
@@ -100,6 +119,16 @@ const Home = ({ navigation, setUser }: RouterProps) => {
             <Picker.Item label="En espera" value="en espera" />
             <Picker.Item label="En proceso" value="en proceso" />
             <Picker.Item label="Finalizada" value="finalizada" />
+          </Picker>
+          <Picker
+            selectedValue={task.prioridad}
+            style={styles.picker}
+            onValueChange={(itemValue) => setTask({ ...task, prioridad: itemValue })}
+          >
+            <Picker.Item label="Sin prioridad" value="sin prioridad" />
+            <Picker.Item label="Prioridad baja" value="prioridad baja" />
+            <Picker.Item label="Prioridad media" value="prioridad media" />
+            <Picker.Item label="Prioridad alta" value="prioridad alta" />
           </Picker>
           <Button title="Guardar" onPress={addOrUpdateTask} color='#008080' />
         </View>
@@ -182,7 +211,8 @@ const styles = StyleSheet.create({
   },
   modalText: {
     fontSize: 18,
-    marginBottom: 20,
+    marginBottom: 15,
+    color: '#333',
   },
   logoutButtons: {
     flexDirection: 'row',
