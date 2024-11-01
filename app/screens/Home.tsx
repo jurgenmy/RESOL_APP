@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, FlatList } from 'react-native';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { NavigationProp } from '@react-navigation/native';
+import { NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { FIREBASE_AUTH, FIREBASE_DB } from '../../FirebaseConfig';
 import { Picker } from '@react-native-picker/picker';
 import { User } from 'firebase/auth';
@@ -16,77 +16,71 @@ interface RouterProps {
   setUser: React.Dispatch<React.SetStateAction<User | null>>;
 }
 
+interface TaskType {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  resolucion: string;
+  estado: string;
+  prioridad: string;
+  fecha: Date;
+  nota?: string;
+}
+
 const Home = ({ navigation, setUser }: RouterProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [notesModalVisible, setNotesModalVisible] = useState(false);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [editingTaskIndex, setEditingTaskIndex] = useState<number | null>(null);
-  const [task, setTask] = useState({ 
-    nombre: '', 
-    descripcion: '', 
-    resolucion: '', 
-    estado: 'en espera', 
-    prioridad: 'sin prioridad', 
-    fecha: new Date(), 
-    nota: '' 
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [task, setTask] = useState<TaskType>({
+    id: '',
+    nombre: '',
+    descripcion: '',
+    resolucion: '',
+    estado: 'en espera',
+    prioridad: 'sin prioridad',
+    fecha: new Date(),
+    nota: ''
   });
-  const [tasks, setTasks] = useState<Array<{
-    id: string;
-    nombre: string;
-    descripcion: string;
-    resolucion: string;
-    estado: string;
-    prioridad: string;
-    fecha: Date;
-    nota?: string;
-  }>>([]);
+  const [tasks, setTasks] = useState<TaskType[]>([]);
 
   const user = FIREBASE_AUTH.currentUser;
 
-  useEffect(() => {
-    if (user) fetchTasks();
+  const fetchTasks = useCallback(async () => {
+    if (user) {
+      const tasksRef = collection(FIREBASE_DB, 'tasks');
+      const q = query(tasksRef, where('userId', '==', user.uid));
+      const querySnapshot = await getDocs(q);
+      const userTasks = querySnapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          fecha: data.fecha && data.fecha.seconds ? new Date(data.fecha.seconds * 1000) : new Date(),
+        };
+      });
+      setTasks(userTasks);
+    }
   }, [user]);
 
-  const fetchTasks = async () => {
-    const tasksRef = collection(FIREBASE_DB, 'tasks');
-    const q = query(tasksRef, where('userId', '==', user?.uid));
-    const querySnapshot = await getDocs(q);
-    const userTasks = querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        fecha: data.fecha && data.fecha.seconds ? new Date(data.fecha.seconds * 1000) : new Date(),
-      };
-    }) as typeof tasks;
-    setTasks(userTasks);
-  };
+  useFocusEffect(
+    useCallback(() => {
+      fetchTasks();
+    }, [fetchTasks])
+  );
 
   const addOrUpdateTask = async () => {
-    if (editingTaskIndex !== null) {
-      const taskToUpdate = tasks[editingTaskIndex];
-      const taskRef = doc(FIREBASE_DB, 'tasks', taskToUpdate.id);
+    if (editingTaskId) {
+      const taskRef = doc(FIREBASE_DB, 'tasks', editingTaskId);
       await updateDoc(taskRef, { ...task, userId: user?.uid });
-      const updatedTasks = [...tasks];
-      updatedTasks[editingTaskIndex] = { ...taskToUpdate, ...task };
-      setTasks(updatedTasks);
+      setTasks(tasks.map(t => t.id === editingTaskId ? { ...task, id: editingTaskId } : t));
     } else {
       const newTaskRef = await addDoc(collection(FIREBASE_DB, 'tasks'), { ...task, userId: user?.uid });
       setTasks([...tasks, { ...task, id: newTaskRef.id }]);
     }
     scheduleNotification(task.fecha);
-    setTask({ 
-      nombre: '', 
-      descripcion: '', 
-      resolucion: '', 
-      estado: 'en espera', 
-      prioridad: 'sin prioridad', 
-      fecha: new Date(), 
-      nota: '' 
-    });
-    setEditingTaskIndex(null);
-    setModalVisible(false);
+    resetTask();
   };
 
   const scheduleNotification = async (fecha: Date) => {
@@ -99,44 +93,58 @@ const Home = ({ navigation, setUser }: RouterProps) => {
     });
   };
 
-  const editTask = (index: number) => {
-    setTask(tasks[index]);
-    setEditingTaskIndex(index);
-    setModalVisible(true);
+  const editTask = (taskId: string) => {
+    const taskToEdit = tasks.find(t => t.id === taskId);
+    if (taskToEdit) {
+      setTask(taskToEdit);
+      setEditingTaskId(taskId);
+      setModalVisible(true);
+    }
   };
 
-  const deleteTask = async (index: number) => {
-    const taskToDelete = tasks[index];
-    await deleteDoc(doc(FIREBASE_DB, 'tasks', taskToDelete.id));
-    setTasks(tasks.filter((_, i) => i !== index));
+  const deleteTask = async (taskId: string) => {
+    await deleteDoc(doc(FIREBASE_DB, 'tasks', taskId));
+    setTasks(tasks.filter(t => t.id !== taskId));
   };
 
-  const openNotesModal = (index: number) => {
-    setTask(tasks[index]);
-    setEditingTaskIndex(index);
-    setNotesModalVisible(true);
+  const openNotesModal = (taskId: string) => {
+    const taskToEdit = tasks.find(t => t.id === taskId);
+    if (taskToEdit) {
+      setTask(taskToEdit);
+      setEditingTaskId(taskId);
+      setNotesModalVisible(true);
+    }
   };
 
   const saveNote = async () => {
-    if (editingTaskIndex !== null) {
-      const taskToUpdate = tasks[editingTaskIndex];
-      const taskRef = doc(FIREBASE_DB, 'tasks', taskToUpdate.id);
+    if (editingTaskId) {
+      const taskRef = doc(FIREBASE_DB, 'tasks', editingTaskId);
       await updateDoc(taskRef, { nota: task.nota });
-      const updatedTasks = [...tasks];
-      updatedTasks[editingTaskIndex] = { ...taskToUpdate, nota: task.nota };
-      setTasks(updatedTasks);
+      setTasks(tasks.map(t => t.id === editingTaskId ? { ...t, nota: task.nota } : t));
     }
     setNotesModalVisible(false);
+  };
+
+  const resetTask = () => {
+    setTask({
+      id: '',
+      nombre: '',
+      descripcion: '',
+      resolucion: '',
+      estado: 'en espera',
+      prioridad: 'sin prioridad',
+      fecha: new Date(),
+      nota: ''
+    });
+    setEditingTaskId(null);
+    setModalVisible(false);
   };
 
   const filterTasks = (status: string[]) => tasks.filter(task => status.includes(task.estado));
 
   const handleLogout = async () => {
     try {
-      // Cierra sesión en Firebase
       await signOut(FIREBASE_AUTH);
-  
-      // Limpia el estado de usuario local y navega a la pantalla de Login
       setUser(null);
       navigation.dispatch(
         CommonActions.reset({
@@ -144,20 +152,15 @@ const Home = ({ navigation, setUser }: RouterProps) => {
           routes: [{ name: 'Login' }],
         })
       );
-      console.log("Sesión cerrada y redirigido al login.");
     } catch (error) {
       console.error("Error al cerrar sesión: ", error);
     }
-  }
-  
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => setLogoutModalVisible(true)}
-          style={styles.backButton}
-        >
+        <TouchableOpacity onPress={() => setLogoutModalVisible(true)} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#4A90E2" />
         </TouchableOpacity>
         <Text style={styles.title}>Mis tareas</Text>
@@ -166,7 +169,7 @@ const Home = ({ navigation, setUser }: RouterProps) => {
       <FlatList
         data={filterTasks(['en espera', 'en proceso'])}
         contentContainerStyle={styles.tasksList}
-        renderItem={({ item, index }) => (
+        renderItem={({ item }) => (
           <View style={styles.taskItem}>
             <Text style={styles.taskTitle}>{item.nombre}</Text>
             <Text style={styles.taskText}>Descripción: {item.descripcion}</Text>
@@ -174,17 +177,15 @@ const Home = ({ navigation, setUser }: RouterProps) => {
             <Text style={styles.taskText}>Estado: {item.estado}</Text>
             <Text style={styles.taskText}>Prioridad: {item.prioridad}</Text>
             <Text style={styles.taskText}>Fecha: {item.fecha.toLocaleDateString()}</Text>
-            {item.nota && (
-              <Text style={styles.taskText}>Nota: {item.nota}</Text>
-            )}
+            {item.nota && <Text style={styles.taskText}>Nota: {item.nota}</Text>}
             <View style={styles.taskButtons}>
-              <TouchableOpacity style={[styles.button, styles.editButton]} onPress={() => editTask(index)}>
+              <TouchableOpacity style={[styles.button, styles.editButton]} onPress={() => editTask(item.id)}>
                 <Text style={styles.buttonText}>Editar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.deleteButton]} onPress={() => deleteTask(index)}>
+              <TouchableOpacity style={[styles.button, styles.deleteButton]} onPress={() => deleteTask(item.id)}>
                 <Text style={styles.buttonText}>Eliminar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.notesButton]} onPress={() => openNotesModal(index)}>
+              <TouchableOpacity style={[styles.button, styles.notesButton]} onPress={() => openNotesModal(item.id)}>
                 <Text style={styles.buttonText}>Notas</Text>
               </TouchableOpacity>
             </View>
@@ -194,26 +195,20 @@ const Home = ({ navigation, setUser }: RouterProps) => {
       />
 
       <View style={styles.bottomButtons}>
-        <TouchableOpacity 
-          onPress={() => navigation.navigate('CompletedTasks')} 
-          style={[styles.button, styles.bottomButton]}
-        >
+        <TouchableOpacity onPress={() => navigation.navigate('CompletedTasks')} style={[styles.button, styles.bottomButton]}>
           <Text style={styles.buttonText}>Tareas Finalizadas</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity 
-          onPress={() => setModalVisible(true)} 
-          style={[styles.button, styles.bottomButton]}
-        >
+        <TouchableOpacity onPress={() => setModalVisible(true)} style={[styles.button, styles.bottomButton]}>
           <Text style={styles.buttonText}>Agregar Tarea [+]</Text>
         </TouchableOpacity>
       </View>
+
 
       <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalContainer}>
           <View style={styles.modalView}>
             <Text style={styles.modalTitle}>
-              {editingTaskIndex !== null ? 'Editar Tarea' : 'Nueva Tarea'}
+              {editingTaskId ? 'Editar Tarea' : 'Nueva Tarea'}
             </Text>
             <TextInput 
               style={styles.input} 
@@ -334,7 +329,7 @@ const Home = ({ navigation, setUser }: RouterProps) => {
             <View style={styles.modalButtons}>
               <TouchableOpacity 
                 style={[styles.button, { backgroundColor: '#4A90E2', marginRight: 10 }]} 
-                onPress={() => {handleLogout()}}
+                onPress={handleLogout}
               >
                 <Text style={styles.buttonText}>Sí</Text>
               </TouchableOpacity>
@@ -351,6 +346,7 @@ const Home = ({ navigation, setUser }: RouterProps) => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
