@@ -1,7 +1,6 @@
-// Home.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, FlatList, StyleSheet, SafeAreaView, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FIREBASE_AUTH } from '../../FirebaseConfig';
 
@@ -45,6 +44,13 @@ const Home = ({ setUser }: HomeProps) => {
     loadTasks();
   }, []);
 
+  // Use useFocusEffect to reload tasks when coming back to this screen
+  useFocusEffect(
+    useCallback(() => {
+      loadTasks();
+    }, [])
+  );
+
   const loadTasks = async () => {
     try {
       const userId = FIREBASE_AUTH.currentUser?.uid;
@@ -60,10 +66,8 @@ const Home = ({ setUser }: HomeProps) => {
 
   const handleSortChange = (newSortBy: string) => {
     if (sortBy === newSortBy) {
-      // Toggle direction if clicking the same sort option
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
-      // Reset direction when changing sort option
       setSortBy(newSortBy);
       setSortDirection('desc');
     }
@@ -88,7 +92,8 @@ const Home = ({ setUser }: HomeProps) => {
           const prioridadOrder: { [key: string]: number } = {
             'prioridad alta': 1,
             'prioridad media': 2,
-            'prioridad baja': 3
+            'prioridad baja': 3,
+            'sin prioridad': 4
           };
           comparison = prioridadOrder[a.prioridad] - prioridadOrder[b.prioridad];
           break;
@@ -137,17 +142,21 @@ const Home = ({ setUser }: HomeProps) => {
     try {
       const userId = FIREBASE_AUTH.currentUser?.uid;
       if (!userId) throw new Error('Usuario no autenticado');
-
+  
       if (editingTaskId) {
         await TaskService.updateTask(editingTaskId, currentTask);
-        setTasks(prevTasks => prevTasks.map(task => 
-          task.id === editingTaskId ? { ...currentTask, id: editingTaskId } : task
-        ));
+        setTasks(prevTasks => {
+          const updatedTasks = prevTasks.map(task => 
+            task.id === editingTaskId ? { ...currentTask, id: editingTaskId } : task
+          );
+          // Filtrar tareas finalizadas después de la actualización
+          return updatedTasks.filter(task => task.estado !== 'finalizada');
+        });
       } else {
         const newTaskId = await TaskService.addTask(currentTask, userId);
         setTasks(prevTasks => [...prevTasks, { ...currentTask, id: newTaskId }]);
       }
-
+  
       setShowTaskModal(false);
       setCurrentTask(initialTaskState);
       setEditingTaskId(null);
@@ -156,14 +165,15 @@ const Home = ({ setUser }: HomeProps) => {
       Alert.alert('Error', 'No se pudo guardar la tarea');
     }
   };
+  
 
   const handleSaveNotes = async () => {
     try {
       if (currentTask.id) {
         await TaskService.updateTask(currentTask.id, currentTask);
-        setTasks(prevTasks => prevTasks.map(task => 
-          task.id === currentTask.id ? { ...task, nota: currentTask.nota } : task
-        ));
+        setTasks(prevTasks =>
+          prevTasks.map(task => (task.id === currentTask.id ? { ...task, nota: currentTask.nota } : task))
+        );
         setShowNotesModal(false);
         Alert.alert('Éxito', 'Nota guardada correctamente');
       }
@@ -181,11 +191,8 @@ const Home = ({ setUser }: HomeProps) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header 
-        title="Gestión de Tareas" 
-        onBackPress={() => setShowLogoutModal(true)} 
-      />
- 
+      <Header title="Gestión de Tareas" onBackPress={() => setShowLogoutModal(true)} />
+
       <FilterBar
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -197,12 +204,7 @@ const Home = ({ setUser }: HomeProps) => {
       <FlatList
         data={sortedAndFilteredTasks}
         renderItem={({ item }) => (
-          <TaskItem
-            item={item}
-            editTask={handleEditTask}
-            deleteTask={handleDeleteTask}
-            openNotesModal={handleOpenNotes}
-          />
+          <TaskItem item={item} editTask={handleEditTask} deleteTask={handleDeleteTask} openNotesModal={handleOpenNotes} />
         )}
         keyExtractor={item => item.id}
         style={styles.list}
@@ -227,11 +229,7 @@ const Home = ({ setUser }: HomeProps) => {
         onSave={handleSaveNotes}
       />
 
-      <LogoutModal
-        visible={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
-        onLogout={handleLogout}
-      />
+      <LogoutModal visible={showLogoutModal} onClose={() => setShowLogoutModal(false)} onLogout={handleLogout} />
 
       <BottomButtons
         onCompletedPress={() => navigation.navigate('CompletedTasks')}
