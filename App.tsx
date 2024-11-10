@@ -7,10 +7,10 @@ import { User, onAuthStateChanged } from 'firebase/auth';
 import { FIREBASE_AUTH } from './FirebaseConfig';
 
 // Screens
-import Login from './app/screens/Login';
-import Home from './app/screens/Home';
-import RegisterUser from './app/screens/RegisterUser';
-import CompletedTasks from './app/screens/CompletedTasks';
+import Login from './app/components/Login';
+import Home from './app/components/Home';
+import RegisterUser from './app/components/RegisterUser';
+import CompletedTasks from './app/components/CompletedTasks';
 
 // Types
 type RootStackParamList = {

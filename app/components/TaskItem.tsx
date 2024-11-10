@@ -1,6 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { TaskService } from '../services/taskService';
+import { Alert } from 'react-native';
+
 
 interface TaskItemProps {
   item: {
@@ -15,9 +18,10 @@ interface TaskItemProps {
   editTask: (id: string) => void;
   deleteTask: (id: string) => void;
   openNotesModal: (id: string) => void;
+  onStatusChange?: (taskId: string, newStatus: string) => void;
 }
 
-const TaskItem = ({ item, editTask, deleteTask, openNotesModal }: TaskItemProps) => {
+const TaskItem = ({ item, editTask, deleteTask, openNotesModal, onStatusChange }: TaskItemProps) => {
   const getPriorityColor = (prioridad: string) => {
     switch (prioridad) {
       case 'prioridad alta':
@@ -30,6 +34,26 @@ const TaskItem = ({ item, editTask, deleteTask, openNotesModal }: TaskItemProps)
         return '#B2B2B2';
     }
   };
+  const renderNotePreview = (nota: string) => {
+    const maxLength = 50;
+    if (nota.length > maxLength) {
+      return nota.substring(0, maxLength) + '...';
+    }
+    return nota;
+    
+  };
+  const handleStatusChange = async () => {
+    try {
+      await TaskService.updateTaskStatus(item.id, 'finalizada');
+      if (onStatusChange) {
+        onStatusChange(item.id, 'finalizada');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo actualizar el estado de la tarea');
+    }
+  };
+
+  
 
   return (
     <View style={styles.taskItem}>
@@ -72,9 +96,18 @@ const TaskItem = ({ item, editTask, deleteTask, openNotesModal }: TaskItemProps)
       </View>
       
       {item.nota && (
-        <View style={styles.notesContainer}>
-          <Text style={styles.notesText}>Nota: {item.nota}</Text>
-        </View>
+        <TouchableOpacity 
+          style={styles.notesContainer}
+          onPress={() => openNotesModal(item.id)}
+        >
+          <Text style={styles.notesPreviewLabel}>Nota:</Text>
+          <Text style={styles.notesPreviewText}>
+            {renderNotePreview(item.nota)}
+          </Text>
+          {item.nota.length > 50 && (
+            <Text style={styles.seeMoreText}>Ver más...</Text>
+          )}
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -146,6 +179,22 @@ const styles = StyleSheet.create({
   notesText: {
     fontSize: 12,
     color: '#666',
+  },
+  notesPreviewLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 4,
+  },
+  notesPreviewText: {
+    fontSize: 12,
+    color: '#666',
+    lineHeight: 16,
+  },
+  seeMoreText: {
+    fontSize: 12,
+    color: '#4A90E2',
+    marginTop: 4,
   },
 });
 

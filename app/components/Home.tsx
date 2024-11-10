@@ -1,3 +1,4 @@
+// Home.tsx
 import React, { useState, useEffect } from 'react';
 import { View, FlatList, StyleSheet, SafeAreaView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -5,12 +6,13 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FIREBASE_AUTH } from '../../FirebaseConfig';
 
 // Components
-import TaskItem from '../components/TaskItem';
-import TaskFormModal from '../components/TaskFormModal';
-import NotesModal from '../components/NotesModal';
-import LogoutModal from '../components/LogoutModal';
+import TaskItem from './TaskItem';
+import TaskFormModal from './TaskFormModal';
+import NotesModal from './NotesModal';
+import LogoutModal from './LogoutModal';
 import Header from './Header';
-import BottomButtons from '../components/BottomButtons';
+import BottomButtons from './BottomButtons';
+import FilterBar from './FilterBar';
 
 // Services and Utils
 import { TaskService } from '../services/taskService';
@@ -35,6 +37,9 @@ const Home = ({ setUser }: HomeProps) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task>(initialTaskState);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('fecha');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     loadTasks();
@@ -51,6 +56,48 @@ const Home = ({ setUser }: HomeProps) => {
     } catch (error) {
       Alert.alert('Error', 'No se pudieron cargar las tareas');
     }
+  };
+
+  const handleSortChange = (newSortBy: string) => {
+    if (sortBy === newSortBy) {
+      // Toggle direction if clicking the same sort option
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Reset direction when changing sort option
+      setSortBy(newSortBy);
+      setSortDirection('desc');
+    }
+  };
+
+  const filterAndSortTasks = () => {
+    let filteredTasks = [...tasks].filter(task => {
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        task.nombre.toLowerCase().includes(searchLower) ||
+        new Date(task.fecha).toLocaleDateString().includes(searchQuery)
+      );
+    });
+
+    return filteredTasks.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'nombre':
+          comparison = a.nombre.localeCompare(b.nombre);
+          break;
+        case 'prioridad':
+          const prioridadOrder: { [key: string]: number } = {
+            'prioridad alta': 1,
+            'prioridad media': 2,
+            'prioridad baja': 3
+          };
+          comparison = prioridadOrder[a.prioridad] - prioridadOrder[b.prioridad];
+          break;
+        case 'fecha':
+          comparison = new Date(a.fecha).getTime() - new Date(b.fecha).getTime();
+          break;
+      }
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
   };
 
   const handleAddTask = () => {
@@ -71,7 +118,7 @@ const Home = ({ setUser }: HomeProps) => {
   const handleDeleteTask = async (taskId: string) => {
     try {
       await TaskService.deleteTask(taskId);
-      setTasks(tasks.filter(task => task.id !== taskId));
+      setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
       Alert.alert('Éxito', 'Tarea eliminada correctamente');
     } catch (error) {
       Alert.alert('Error', 'No se pudo eliminar la tarea');
@@ -93,12 +140,12 @@ const Home = ({ setUser }: HomeProps) => {
 
       if (editingTaskId) {
         await TaskService.updateTask(editingTaskId, currentTask);
-        setTasks(tasks.map(task => 
+        setTasks(prevTasks => prevTasks.map(task => 
           task.id === editingTaskId ? { ...currentTask, id: editingTaskId } : task
         ));
       } else {
         const newTaskId = await TaskService.addTask(currentTask, userId);
-        setTasks([...tasks, { ...currentTask, id: newTaskId }]);
+        setTasks(prevTasks => [...prevTasks, { ...currentTask, id: newTaskId }]);
       }
 
       setShowTaskModal(false);
@@ -113,13 +160,13 @@ const Home = ({ setUser }: HomeProps) => {
   const handleSaveNotes = async () => {
     try {
       if (currentTask.id) {
-        await TaskService.updateTask(currentTask.id, { nota: currentTask.nota });
-        setTasks(tasks.map(task => 
+        await TaskService.updateTask(currentTask.id, currentTask);
+        setTasks(prevTasks => prevTasks.map(task => 
           task.id === currentTask.id ? { ...task, nota: currentTask.nota } : task
         ));
+        setShowNotesModal(false);
+        Alert.alert('Éxito', 'Nota guardada correctamente');
       }
-      setShowNotesModal(false);
-      Alert.alert('Éxito', 'Nota guardada correctamente');
     } catch (error) {
       Alert.alert('Error', 'No se pudo guardar la nota');
     }
@@ -130,15 +177,25 @@ const Home = ({ setUser }: HomeProps) => {
     setUser(null);
   };
 
+  const sortedAndFilteredTasks = filterAndSortTasks();
+
   return (
     <SafeAreaView style={styles.container}>
       <Header 
         title="Gestión de Tareas" 
         onBackPress={() => setShowLogoutModal(true)} 
       />
+ 
+      <FilterBar
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        sortBy={sortBy}
+        setSortBy={handleSortChange}
+        sortDirection={sortDirection}
+      />
 
       <FlatList
-        data={tasks}
+        data={sortedAndFilteredTasks}
         renderItem={({ item }) => (
           <TaskItem
             item={item}
@@ -192,7 +249,7 @@ const styles = StyleSheet.create({
   list: {
     flex: 1,
     padding: 10,
-    marginBottom: 80, // Space for bottom buttons
+    marginBottom: 80,
   },
 });
 

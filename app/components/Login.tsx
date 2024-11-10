@@ -1,4 +1,4 @@
-//Home.tsx
+//Login.tsx
 
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';

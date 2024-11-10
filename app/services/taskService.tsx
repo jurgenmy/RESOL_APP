@@ -1,4 +1,4 @@
-// services/taskService.ts
+// services/taskService.tsx
 
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { FIREBASE_DB } from '../../FirebaseConfig';
@@ -32,5 +32,7 @@ export class TaskService {
 
   static async deleteTask(taskId: string): Promise<void> {
     await deleteDoc(doc(FIREBASE_DB, 'tasks', taskId));
+  
   }
+  
 }
