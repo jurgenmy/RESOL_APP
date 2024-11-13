@@ -7,6 +7,7 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { collection, addDoc } from 'firebase/firestore';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
+import { UserService } from '../services/UserService';
 
 const RegisterUser = ({ navigation }: any) => {
   const [name, setName] = useState('');
@@ -110,6 +111,25 @@ const RegisterUser = ({ navigation }: any) => {
         'No se pudo cargar la imagen. Por favor, intenta nuevamente.'
       );
     }
+    const handleRegister = async () => {
+      try {
+        const userCredential = await createUserWithEmailAndPassword(
+          FIREBASE_AUTH,
+          email,
+          password
+        );
+        
+        if (userCredential.user) {
+          await UserService.createUserProfile(
+            userCredential.user.uid,
+            userCredential.user.email || ''
+          );
+        }
+      } catch (error) {
+        console.error(error);
+        Alert.alert('Error', 'No se pudo crear el usuario');
+      }
+    };
   };
 
   return (

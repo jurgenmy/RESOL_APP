@@ -1,3 +1,4 @@
+//LogoutModal.tsx
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 

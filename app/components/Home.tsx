@@ -1,3 +1,5 @@
+//Home.tsx
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, FlatList, StyleSheet, SafeAreaView, Alert } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -14,7 +16,7 @@ import BottomButtons from './BottomButtons';
 import FilterBar from './FilterBar';
 
 // Services and Utils
-import { TaskService } from '../services/taskService';
+import { TaskService } from '../services/TaskService';
 import { Task, initialTaskState } from '../types';
 
 type RootStackParamList = {
@@ -143,18 +145,28 @@ const Home = ({ setUser }: HomeProps) => {
       const userId = FIREBASE_AUTH.currentUser?.uid;
       if (!userId) throw new Error('Usuario no autenticado');
   
+      if (!currentTask.nombre?.trim()) {
+        Alert.alert('Error', 'El nombre de la tarea es requerido');
+        return;
+      }
+  
+      const taskToSave = {
+        ...currentTask,
+        estado: currentTask.estado || 'en proceso',
+        fecha: currentTask.fecha || new Date()
+      };
+  
       if (editingTaskId) {
-        await TaskService.updateTask(editingTaskId, currentTask);
-        setTasks(prevTasks => {
-          const updatedTasks = prevTasks.map(task => 
-            task.id === editingTaskId ? { ...currentTask, id: editingTaskId } : task
-          );
-          // Filtrar tareas finalizadas después de la actualización
-          return updatedTasks.filter(task => task.estado !== 'finalizada');
-        });
+        await TaskService.updateTask(editingTaskId, taskToSave);
+        setTasks(prevTasks =>
+          prevTasks.map(task =>
+            task.id === editingTaskId ? { ...task, ...taskToSave } : task
+          )
+        );
       } else {
-        const newTaskId = await TaskService.addTask(currentTask, userId);
-        setTasks(prevTasks => [...prevTasks, { ...currentTask, id: newTaskId }]);
+        const newTaskId = await TaskService.addTask(taskToSave, userId);
+        const newTask = { ...taskToSave, id: newTaskId };
+        setTasks(prevTasks => [...prevTasks, newTask]);
       }
   
       setShowTaskModal(false);
@@ -162,26 +174,40 @@ const Home = ({ setUser }: HomeProps) => {
       setEditingTaskId(null);
       Alert.alert('Éxito', 'Tarea guardada correctamente');
     } catch (error) {
+      console.error('Error al guardar tarea:', error);
       Alert.alert('Error', 'No se pudo guardar la tarea');
     }
+    loadTasks();
   };
   
-
   const handleSaveNotes = async () => {
     try {
-      if (currentTask.id) {
-        await TaskService.updateTask(currentTask.id, currentTask);
-        setTasks(prevTasks =>
-          prevTasks.map(task => (task.id === currentTask.id ? { ...task, nota: currentTask.nota } : task))
-        );
-        setShowNotesModal(false);
-        Alert.alert('Éxito', 'Nota guardada correctamente');
+      if (!currentTask.id) {
+        throw new Error('ID de tarea no válido');
       }
+  
+      const noteUpdate = {
+        nota: currentTask.nota ?? '' // Usar el operador ?? para permitir notas vacías
+      };
+  
+      await TaskService.updateTask(currentTask.id, noteUpdate);
+      
+      setTasks(prevTasks =>
+        prevTasks.map(task =>
+          task.id === currentTask.id
+            ? { ...task, nota: currentTask.nota }
+            : task
+        )
+      );
+  
+      setShowNotesModal(false);
+      Alert.alert('Éxito', 'Nota guardada correctamente');
     } catch (error) {
+      console.error('Error al guardar nota:', error);
       Alert.alert('Error', 'No se pudo guardar la nota');
     }
   };
-
+  
   const handleLogout = () => {
     FIREBASE_AUTH.signOut();
     setUser(null);
@@ -219,6 +245,7 @@ const Home = ({ setUser }: HomeProps) => {
         editingTaskId={editingTaskId}
         showDatePicker={showDatePicker}
         setShowDatePicker={setShowDatePicker}
+        loadTasks={loadTasks} 
       />
 
       <NotesModal

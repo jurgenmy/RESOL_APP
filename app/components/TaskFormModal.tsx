@@ -1,29 +1,44 @@
+//TaskFormModal.tsx
+
 import React from 'react';
-import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+
+interface Task {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  resolucion: string;
+  estado: string;
+  prioridad: string;
+  fecha: Date;
+  nota?: string;
+}
 
 interface TaskFormModalProps {
   visible: boolean;
   onClose: () => void;
-  task: {
-    id: string;
-    nombre: string;
-    descripcion: string;
-    resolucion: string;
-    estado: string;
-    prioridad: string;
-    fecha: Date;
-    nota?: string;
-  };
-  setTask: (task: any) => void;
+  task: Task;
+  setTask: (task: Task) => void;
   onSave: () => void;
   editingTaskId: string | null;
   showDatePicker: boolean;
   setShowDatePicker: (show: boolean) => void;
 }
 
-const TaskFormModal = ({
+const defaultTask: Task = {
+  id: '',
+  nombre: '',
+  descripcion: '',
+  resolucion: '',
+  estado: 'en proceso',
+  prioridad: 'prioridad media',
+  fecha: new Date(),
+  nota: ''
+};
+
+const TaskFormModal: React.FC<TaskFormModalProps> = ({
   visible,
   onClose,
   task,
@@ -32,7 +47,38 @@ const TaskFormModal = ({
   editingTaskId,
   showDatePicker,
   setShowDatePicker,
-}: TaskFormModalProps) => {
+
+}) => {
+  // Asegurarse de que siempre tengamos un objeto task válido
+  const currentTask = task || defaultTask;
+
+  const handleSave = () => {
+    if (!currentTask.nombre?.trim()) {
+      Alert.alert('Error', 'El nombre de la tarea es requerido');
+      return;
+    }
+    
+    // Asegurarse de que todos los campos requeridos tengan valores por defecto
+    const taskToSave = {
+      ...currentTask,
+      estado: currentTask.estado || 'en proceso',
+      prioridad: currentTask.prioridad || 'prioridad media',
+      fecha: currentTask.fecha || new Date(),
+      nota: currentTask.nota || ''
+    };
+    
+    setTask(taskToSave);
+    onSave();
+    
+  };
+
+  const updateTaskField = (field: keyof Task, value: any) => {
+    setTask({
+      ...currentTask,
+      [field]: value
+    });
+  };
+
   return (
     <Modal
       animationType="slide"
@@ -49,28 +95,28 @@ const TaskFormModal = ({
           <TextInput
             style={styles.input}
             placeholder="Nombre"
-            value={task.nombre}
-            onChangeText={(text) => setTask({ ...task, nombre: text })}
+            value={currentTask.nombre}
+            onChangeText={(text) => updateTaskField('nombre', text)}
           />
           
           <TextInput
             style={styles.input}
             placeholder="Descripción"
-            value={task.descripcion}
-            onChangeText={(text) => setTask({ ...task, descripcion: text })}
+            value={currentTask.descripcion}
+            onChangeText={(text) => updateTaskField('descripcion', text)}
           />
           
           <TextInput
             style={styles.input}
             placeholder="Resolución"
-            value={task.resolucion}
-            onChangeText={(text) => setTask({ ...task, resolucion: text })}
+            value={currentTask.resolucion}
+            onChangeText={(text) => updateTaskField('resolucion', text)}
           />
           
           <Picker
-            selectedValue={task.estado}
+            selectedValue={currentTask.estado}
             style={styles.picker}
-            onValueChange={(itemValue) => setTask({ ...task, estado: itemValue })}
+            onValueChange={(itemValue) => updateTaskField('estado', itemValue)}
           >
             <Picker.Item label="En espera" value="en espera" />
             <Picker.Item label="En proceso" value="en proceso" />
@@ -78,9 +124,9 @@ const TaskFormModal = ({
           </Picker>
           
           <Picker
-            selectedValue={task.prioridad}
+            selectedValue={currentTask.prioridad}
             style={styles.picker}
-            onValueChange={(itemValue) => setTask({ ...task, prioridad: itemValue })}
+            onValueChange={(itemValue) => updateTaskField('prioridad', itemValue)}
           >
             <Picker.Item label="Sin prioridad" value="sin prioridad" />
             <Picker.Item label="Prioridad baja" value="prioridad baja" />
@@ -92,17 +138,21 @@ const TaskFormModal = ({
             style={[styles.button, { backgroundColor: '#4A90E2' }]}
             onPress={() => setShowDatePicker(true)}
           >
-            <Text style={styles.buttonText}>Seleccionar Fecha</Text>
+            <Text style={styles.buttonText}>
+              Fecha: {currentTask.fecha.toLocaleDateString()}
+            </Text>
           </TouchableOpacity>
           
           {showDatePicker && (
             <DateTimePicker
-              value={task.fecha}
+              value={currentTask.fecha}
               mode="date"
               display="default"
               onChange={(event, selectedDate) => {
                 setShowDatePicker(false);
-                if (selectedDate) setTask({ ...task, fecha: selectedDate });
+                if (selectedDate) {
+                  updateTaskField('fecha', selectedDate);
+                }
               }}
             />
           )}
@@ -110,7 +160,7 @@ const TaskFormModal = ({
           <View style={styles.modalButtons}>
             <TouchableOpacity
               style={[styles.button, { backgroundColor: '#4A90E2', marginRight: 10 }]}
-              onPress={onSave}
+              onPress={handleSave}
             >
               <Text style={styles.buttonText}>Guardar</Text>
             </TouchableOpacity>
@@ -139,7 +189,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     width: '90%',
-    maxHeight: '80%',
+    maxHeight: '90%',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

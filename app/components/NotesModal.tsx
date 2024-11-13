@@ -1,3 +1,5 @@
+//NotesModal.tsx
+
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity } from 'react-native';
 

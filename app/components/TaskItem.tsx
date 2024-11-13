@@ -1,9 +1,11 @@
-import React from 'react';
+//TaskItem.tsx
+
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { TaskService } from '../services/taskService';
+import { TaskService } from '../services/TaskService';
 import { Alert } from 'react-native';
-
+import ShareTaskModal from './ShareTaskModal';
 
 interface TaskItemProps {
   item: {
@@ -14,6 +16,11 @@ interface TaskItemProps {
     prioridad: string;
     fecha: Date;
     nota?: string;
+    sharedBy?: string;
+    sharedWith?: string[];
+    assignedTo?: string;
+    isGroupTask?: boolean;
+    groupId?: string;
   };
   editTask: (id: string) => void;
   deleteTask: (id: string) => void;
@@ -22,6 +29,8 @@ interface TaskItemProps {
 }
 
 const TaskItem = ({ item, editTask, deleteTask, openNotesModal, onStatusChange }: TaskItemProps) => {
+  const [showShareModal, setShowShareModal] = useState(false);
+
   const getPriorityColor = (prioridad: string) => {
     switch (prioridad) {
       case 'prioridad alta':
@@ -34,14 +43,15 @@ const TaskItem = ({ item, editTask, deleteTask, openNotesModal, onStatusChange }
         return '#B2B2B2';
     }
   };
+
   const renderNotePreview = (nota: string) => {
     const maxLength = 50;
     if (nota.length > maxLength) {
       return nota.substring(0, maxLength) + '...';
     }
     return nota;
-    
   };
+
   const handleStatusChange = async () => {
     try {
       await TaskService.updateTaskStatus(item.id, 'finalizada');
@@ -53,18 +63,28 @@ const TaskItem = ({ item, editTask, deleteTask, openNotesModal, onStatusChange }
     }
   };
 
-  
+  const fechaFormateada = item.fecha instanceof Date 
+    ? item.fecha.toLocaleDateString()
+    : new Date(item.fecha).toLocaleDateString();
 
   return (
     <View style={styles.taskItem}>
       <View style={styles.taskHeader}>
-        <Text style={styles.taskTitle}>{item.nombre}</Text>
+        <Text style={styles.taskTitle} numberOfLines={1}>
+          {item.nombre}
+        </Text>
         <View style={styles.buttonsContainer}>
           <TouchableOpacity
             style={[styles.iconButton, { backgroundColor: '#4A90E2' }]}
             onPress={() => editTask(item.id)}
           >
             <Ionicons name="pencil" size={20} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconButton, { backgroundColor: '#6BCB77' }]}
+            onPress={() => setShowShareModal(true)}
+          >
+            <Ionicons name="share-social" size={20} color="white" />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.iconButton, { backgroundColor: '#FF6347' }]}
@@ -80,9 +100,11 @@ const TaskItem = ({ item, editTask, deleteTask, openNotesModal, onStatusChange }
           </TouchableOpacity>
         </View>
       </View>
-      
-      <Text style={styles.taskDescription}>{item.descripcion}</Text>
-      
+
+      <Text style={styles.taskDescription} numberOfLines={2}>
+        {item.descripcion}
+      </Text>
+
       <View style={styles.taskFooter}>
         <View style={[styles.badge, { backgroundColor: getPriorityColor(item.prioridad) }]}>
           <Text style={styles.badgeText}>{item.prioridad}</Text>
@@ -90,11 +112,9 @@ const TaskItem = ({ item, editTask, deleteTask, openNotesModal, onStatusChange }
         <View style={[styles.badge, { backgroundColor: '#4A90E2' }]}>
           <Text style={styles.badgeText}>{item.estado}</Text>
         </View>
-        <Text style={styles.dateText}>
-          {new Date(item.fecha).toLocaleDateString()}
-        </Text>
+        <Text style={styles.dateText}>{fechaFormateada}</Text>
       </View>
-      
+
       {item.nota && (
         <TouchableOpacity 
           style={styles.notesContainer}
@@ -109,6 +129,30 @@ const TaskItem = ({ item, editTask, deleteTask, openNotesModal, onStatusChange }
           )}
         </TouchableOpacity>
       )}
+
+      {item.sharedBy && (
+        <View style={styles.sharedInfo}>
+          <Text style={styles.sharedText}>
+            Compartido por: {item.sharedBy}
+          </Text>
+          {item.isGroupTask && item.groupId && (
+            <Text style={styles.sharedText}>
+              Grupo: {item.groupId}
+            </Text>
+          )}
+          {item.assignedTo && (
+            <Text style={styles.sharedText}>
+              Asignado a: {item.assignedTo}
+            </Text>
+          )}
+        </View>
+      )}
+
+      <ShareTaskModal
+        visible={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        taskId={item.id}
+      />
     </View>
   );
 };
@@ -176,10 +220,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     borderRadius: 5,
   },
-  notesText: {
-    fontSize: 12,
-    color: '#666',
-  },
   notesPreviewLabel: {
     fontSize: 12,
     fontWeight: 'bold',
@@ -195,6 +235,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#4A90E2',
     marginTop: 4,
+  },
+  sharedInfo: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+  },
+  sharedText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
   },
 });
 

@@ -1,4 +1,4 @@
-// types/index.ts
+// types/index.tsx
 
 export interface Task {
     id: string;
