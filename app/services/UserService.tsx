@@ -1,22 +1,26 @@
-// services/UserService.ts
+// services/UserService.tsx
 
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { FIREBASE_DB } from '../../FirebaseConfig';
 import { UserProfile } from '../types/social';
 
 export class UserService {
-  static async createUserProfile(userId: string, email: string): Promise<void> {
+  static async createUserProfile(userId: string, email: string, firstName?: string, lastName?: string, birthdate?: string): Promise<void> {
     const userRef = doc(FIREBASE_DB, 'users', userId);
     const newUser: UserProfile = {
       id: userId,
       email,
-      displayName: email.split('@')[0], // Nombre por defecto
+      displayName: email.split('@')[0],
       friends: [],
       pendingFriends: [],
       createdAt: Date.now(),
+      firstName: firstName || '', // Default vacío si no se proporciona
+      lastName: lastName || '',
+      birthdate: birthdate || '',
     };
     await setDoc(userRef, newUser);
   }
+  
 
   static async getUserProfile(userId: string): Promise<UserProfile | null> {
     try {
@@ -39,6 +43,7 @@ export class UserService {
       lastActive: Date.now(),
     });
   }
+  
 
   static async acceptFriendRequest(userId: string, friendId: string): Promise<void> {
     const userRef = doc(FIREBASE_DB, 'users', userId);

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert, Image, TouchableOpacity } from 'react-native';
 import { FIREBASE_AUTH, FIREBASE_DB } from '../../FirebaseConfig';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, setDoc, doc } from 'firebase/firestore';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import { UserService } from '../services/UserService';
@@ -30,19 +30,31 @@ const RegisterUser = ({ navigation }: any) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(FIREBASE_AUTH, email, password);
       const user = userCredential.user;
-
-      if (profileImage) {
-        await updateProfile(user, { photoURL: profileImage });
-      }
-
-      await addDoc(collection(FIREBASE_DB, "users"), {
-        name,
-        lastName,
-        email,
-        birthdate,
+  
+      // Crear el documento del usuario en Firestore
+      const userDoc = {
+        uid: user.uid,
+        email: email,
+        displayName: `${name} ${lastName}`,
+        firstName: name,
+        lastName: lastName,
+        birthdate: birthdate,
         photoURL: profileImage || null,
+        bio: '',
+        friends: [],
+        pendingFriends: [],
+        createdAt: new Date().toISOString(),
+      };
+  
+      // Guardar en Firestore usando el UID como ID del documento
+      await setDoc(doc(FIREBASE_DB, "users", user.uid), userDoc);
+  
+      // Actualizar el perfil en Firebase Auth
+      await updateProfile(user, {
+        displayName: `${name} ${lastName}`,
+        photoURL: profileImage || null
       });
-
+  
       Alert.alert("Registro exitoso", "Usuario registrado correctamente");
       navigation.navigate('Login');
     } catch (error: any) {
@@ -74,6 +86,8 @@ const RegisterUser = ({ navigation }: any) => {
   
         // Crear FormData
         const formData = new FormData();
+        const uri = result.assets[0].uri;
+        
         formData.append('image', {
           uri: result.assets[0].uri,
           type: 'image/jpeg',

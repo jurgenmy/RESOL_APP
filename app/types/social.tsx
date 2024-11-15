@@ -1,7 +1,10 @@
+
 import { Task } from '../types'; // Asegúrate de importar correctamente el tipo Task
 
 export interface UserProfile {
   id: string;
+  uid:string;
+  friendId:string;
   email: string;
   displayName: string;
   photoURL?: string;
@@ -10,6 +13,9 @@ export interface UserProfile {
   pendingFriends: string[];
   createdAt: number;
   lastActive?: number;
+  firstName?: string; 
+  lastName?: string;  
+  birthdate?: string; 
 }
 
 export interface Group {

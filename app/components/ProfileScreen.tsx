@@ -21,7 +21,7 @@ import { UserService } from '../services/UserService';
 import { UserProfile } from '../types/social';
 import { FIREBASE_AUTH, FIREBASE_DB } from '../../FirebaseConfig';
 import * as ImagePicker from 'expo-image-picker';
-import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 import axios from 'axios';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -107,7 +107,62 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
       </View>
     </Modal>
   );
+};const AddFriendModal: React.FC<{
+  visible: boolean;
+  onClose: () => void;
+  onAddFriend: (email: string) => Promise<void>;
+}> = ({ visible, onClose, onAddFriend }) => {
+  const [email, setEmail] = useState('');
+
+  const handleSubmit = async () => {
+    await onAddFriend(email);
+    setEmail('');
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Agregar Amigo</Text>
+          
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Correo electrónico"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          
+          <View style={styles.modalButtons}>
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.cancelButton]} 
+              onPress={() => {
+                setEmail('');
+                onClose();
+              }}
+            >
+              <Text style={styles.modalButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.saveButton]} 
+              onPress={handleSubmit}
+            >
+              <Text style={styles.modalButtonText}>Enviar Solicitud</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 };
+
 
 const ProfileScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -124,15 +179,35 @@ const ProfileScreen = () => {
     completedTasks: 0,
     totalGroups: 0
   });
+  const [showAddFriendModal, setShowAddFriendModal] = useState(false);
+  const [friendEmail, setFriendEmail] = useState('');
 
-  const loadProfile = async () => {
-    try {
-      const userId = FIREBASE_AUTH.currentUser?.uid;
-      if (!userId) return;
+  
+const loadProfile = async () => {
+  try {
+    const userId = FIREBASE_AUTH.currentUser?.uid;
+    if (!userId) return;
 
-      const userProfile = await UserService.getUserProfile(userId);
-      setProfile(userProfile);
-      
+    const userProfile = await UserService.getUserProfile(userId);
+    setProfile(userProfile);
+    
+    // Cargar solicitudes pendientes
+    if (userProfile?.pendingFriends?.length) {
+      const pendingProfiles = await Promise.all(
+        userProfile.pendingFriends.map(async (friendId) => {
+          const profile = await UserService.getUserProfile(friendId);
+          // Asegurarse de que el ID esté incluido en el perfil
+          return profile ? {
+            ...profile,
+            uid: friendId,  // Aseguramos que uid esté presente
+            friendId: friendId  // Respaldo adicional
+          } : null;
+        })
+      );
+      setPendingRequests(pendingProfiles.filter((p): p is UserProfile => p !== null));
+    } else {
+      setPendingRequests([]);
+    }
       // Cargar amigos
       const friendProfiles = await Promise.all(
         userProfile?.friends?.map(friendId => UserService.getUserProfile(friendId)) || []
@@ -168,6 +243,7 @@ const ProfileScreen = () => {
       loadProfile();
     }, [])
   );
+  
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -241,16 +317,83 @@ const ProfileScreen = () => {
       setIsLoading(false);
     }
   };
-
   const handleAcceptFriend = async (friendId: string) => {
     try {
+      // Añadir log para debug
+      console.log('Accepting friend with ID:', friendId);
+      
+      if (!friendId) {
+        console.log('Friend ID is undefined or empty');
+        Alert.alert('Error', 'El ID del amigo no está definido');
+        return;
+      }
+  
       setIsLoading(true);
       const userId = FIREBASE_AUTH.currentUser?.uid;
-      if (userId) {
-        await UserService.acceptFriendRequest(userId, friendId);
-        await loadProfile();
-        Alert.alert('Éxito', 'Solicitud de amistad aceptada');
+      if (!userId) {
+        Alert.alert('Error', 'No se pudo obtener el ID del usuario actual');
+        return;
       }
+  
+      // Obtener documento del usuario actual
+      const userRef = doc(FIREBASE_DB, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data();
+  
+      if (!userData) {
+        Alert.alert('Error', 'No se pudieron obtener los datos del usuario');
+        return;
+      }
+  
+      const currentPending = userData.pendingFriends || [];
+      const currentFriends = userData.friends || [];
+  
+      // Log para debug
+      console.log('Current pending friends:', currentPending);
+      console.log('Current friends:', currentFriends);
+  
+      // Verificar si la solicitud está pendiente
+      if (!currentPending.includes(friendId)) {
+        console.log('Friend ID not found in pending list');
+        Alert.alert('Error', 'No se encontró la solicitud de amistad');
+        return;
+      }
+  
+      // Obtener documento del amigo
+      const friendRef = doc(FIREBASE_DB, 'users', friendId);
+      const friendDoc = await getDoc(friendRef);
+      const friendData = friendDoc.data();
+  
+      if (!friendDoc.exists() || !friendData) {
+        Alert.alert('Error', 'No se encontró el usuario amigo');
+        return;
+      }
+  
+      const friendFriends = friendData.friends || [];
+  
+      // Preparar actualizaciones
+      const updatedUserData = {
+        friends: [...new Set([...currentFriends, friendId])],
+        pendingFriends: currentPending.filter((id: string) => id !== friendId)
+      };
+      
+  
+      const updatedFriendData = {
+        friends: [...new Set([...friendFriends, userId])]
+      };
+  
+      // Log para debug
+      console.log('Updating user data:', updatedUserData);
+      console.log('Updating friend data:', updatedFriendData);
+  
+      // Realizar actualizaciones
+      await updateDoc(userRef, updatedUserData);
+      await updateDoc(friendRef, updatedFriendData);
+  
+      // Recargar el perfil
+      await loadProfile();
+      Alert.alert('Éxito', 'Solicitud de amistad aceptada');
+  
     } catch (error) {
       console.error('Error accepting friend request:', error);
       Alert.alert('Error', 'No se pudo aceptar la solicitud');
@@ -258,7 +401,8 @@ const ProfileScreen = () => {
       setIsLoading(false);
     }
   };
-
+  
+  
   const handleRemoveFriend = async (friendId: string) => {
     Alert.alert(
       'Confirmar',
@@ -298,6 +442,7 @@ const ProfileScreen = () => {
       const userId = FIREBASE_AUTH.currentUser?.uid;
       if (userId) {
         const userRef = doc(FIREBASE_DB, 'users', userId);
+        
         await setDoc(userRef, data);
         setProfile(prev => prev ? {...prev, ...data} : null);
         Alert.alert('Éxito', 'Perfil actualizado');
@@ -327,7 +472,84 @@ const ProfileScreen = () => {
       </View>
     );
   }
+  
+  const handleAddFriend = async (friendEmail: string) => {
+    try {
+      setIsLoading(true);
 
+      if (!friendEmail) {
+        Alert.alert('Error', 'Por favor ingresa un correo electrónico');
+        return;
+      }
+
+      const currentUserId = FIREBASE_AUTH.currentUser?.uid;
+      if (!currentUserId) {
+        Alert.alert('Error', 'No se pudo obtener el ID del usuario actual');
+        return;
+      }
+
+      // Primero buscar en Firestore
+      const usersRef = collection(FIREBASE_DB, 'users');
+      const emailQuery = query(usersRef, where('email', '==', friendEmail.toLowerCase().trim()));
+      const querySnapshot = await getDocs(emailQuery);
+
+      if (querySnapshot.empty) {
+
+        Alert.alert('Error', 'No se encontró ningún usuario con ese correo electrónico');
+        return;
+      }
+
+      const friendDoc = querySnapshot.docs[0];
+      const friendId = friendDoc.id;
+
+      if (friendId === currentUserId) {
+        Alert.alert('Error', 'No puedes agregarte a ti mismo como amigo');
+        return;
+      }
+
+      // Obtener datos actuales del usuario
+      const currentUserDoc = await getDoc(doc(FIREBASE_DB, 'users', currentUserId));
+      const currentUserData = currentUserDoc.data();
+
+      if (!currentUserData) {
+        Alert.alert('Error', 'No se pudieron obtener los datos del usuario');
+        return;
+      }
+
+      // Verificar si ya son amigos
+      if (currentUserData.friends?.includes(friendId)) {
+        Alert.alert('Error', 'Este usuario ya es tu amigo');
+        return;
+      }
+
+      // Verificar si ya hay una solicitud pendiente
+      if (currentUserData.pendingFriends?.includes(friendId)) {
+        Alert.alert('Info', 'Ya existe una solicitud pendiente con este usuario');
+        return;
+      }
+
+      // Obtener datos del amigo
+      const friendData = friendDoc.data();
+      const updatedPendingFriends = [...(friendData.pendingFriends || []), currentUserId];
+
+      // Actualizar pendingFriends del amigo
+      await updateDoc(doc(FIREBASE_DB, 'users', friendId), {
+        pendingFriends: updatedPendingFriends
+      });
+
+      setShowAddFriendModal(false);
+      Alert.alert('Éxito', 'Solicitud de amistad enviada');
+      
+      // Recargar el perfil para actualizar la UI
+      await loadProfile();
+      
+    } catch (error) {
+      console.error('Error adding friend:', error);
+      Alert.alert('Error', 'No se pudo enviar la solicitud de amistad');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   return (
     <ScrollView 
       style={styles.container}
@@ -356,15 +578,21 @@ const ProfileScreen = () => {
             />
             <Text style={styles.changePhotoText}>Cambiar foto</Text>
           </TouchableOpacity>
-          <Text style={styles.displayName}>{profile.displayName}</Text>
+          <Text style={styles.displayName}>
+            {profile.firstName} {profile.lastName}
+          </Text>
           <Text style={styles.email}>{profile.email}</Text>
+          <Text style={styles.birthdate}>
+            Fecha de nacimiento: {profile.birthdate}
+          </Text>
           {profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
-          
+        
           <TouchableOpacity style={styles.idContainer} onPress={copyUserId}>
             <Text style={styles.idText}>ID: {FIREBASE_AUTH.currentUser?.uid}</Text>
             <MaterialIcons name="content-copy" size={16} color="#666" />
           </TouchableOpacity>
 
+    
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>{stats.totalTasks}</Text>
@@ -379,43 +607,59 @@ const ProfileScreen = () => {
               <Text style={styles.statLabel}>Grupos</Text>
             </View>
           </View>
+          <TouchableOpacity 
+            style={styles.addFriendButton}
+            onPress={() => setShowAddFriendModal(true)}
+          >
+            <MaterialIcons name="person-add" size={24} color="#fff" />
+            <Text style={styles.addFriendButtonText}>Agregar Amigo</Text>
+          </TouchableOpacity>
+
         </View>
       )}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          Solicitudes Pendientes ({pendingRequests.length})
-        </Text>
-        {pendingRequests.length > 0 ? (
-          <FlatList
-            data={pendingRequests}
-            renderItem={({ item }) => (
-              <View style={styles.requestItem}>
-                <View style={styles.userInfo}>
-                  <Image 
-                    source={{ uri: item.photoURL || 'https://via.placeholder.com/50' }} 
-                    style={styles.smallProfileImage}
-                  />
-                  <View>
-                    <Text style={styles.userName}>{item.displayName}</Text>
-                    <Text style={styles.userEmail}>{item.email}</Text>
-                  </View>
-                </View>
-                <TouchableOpacity 
-                  style={styles.acceptButton}
-                  onPress={() => handleAcceptFriend(item.id)}
-                >
-                  <Text style={styles.buttonText}>Aceptar</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            keyExtractor={item => item.id}
-            scrollEnabled={false}
-          />
-        ) : (
-          <Text style={styles.emptyText}>No hay solicitudes pendientes</Text>
-        )}
-      </View>
+<View style={styles.section}>
+  <Text style={styles.sectionTitle}>
+    Solicitudes Pendientes ({pendingRequests.length})
+  </Text>
+  {pendingRequests.length > 0 ? (
+    <FlatList
+      data={pendingRequests}
+      renderItem={({ item }) => (
+        <View style={styles.requestItem}>
+          <View style={styles.userInfo}>
+            <Image 
+              source={{ uri: item.photoURL || 'https://via.placeholder.com/50' }} 
+              style={styles.smallProfileImage}
+            />
+            <View>
+              <Text style={styles.userName}>{item.displayName}</Text>
+              <Text style={styles.userEmail}>{item.email}</Text>
+            </View>
+          </View>
+          <TouchableOpacity 
+            style={styles.acceptButton}
+            onPress={() => {
+              // Use uid instead of id
+              const friendId = item.uid || item.friendId;
+              if (friendId) {
+                handleAcceptFriend(friendId);
+              } else {
+                Alert.alert('Error', 'No se pudo identificar al usuario');
+              }
+            }}
+          >
+            <Text style={styles.buttonText}>Aceptar</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      keyExtractor={item => item.uid || item.friendId || Math.random().toString()}
+      scrollEnabled={false}
+    />
+  ) : (
+    <Text style={styles.emptyText}>No hay solicitudes pendientes</Text>
+  )}
+</View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
@@ -461,11 +705,17 @@ const ProfileScreen = () => {
         )}
       </View>
 
+     
       <EditProfileModal
         visible={isEditModalVisible}
         onClose={() => setIsEditModalVisible(false)}
         onSave={handleUpdateProfile}
         currentProfile={profile}
+      />
+      <AddFriendModal
+        visible={showAddFriendModal}
+        onClose={() => setShowAddFriendModal(false)}
+        onAddFriend={handleAddFriend}
       />
     </ScrollView>
   );
@@ -688,7 +938,28 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: 'white',
     fontWeight: 'bold',
+    
+  },
+  birthdate: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
+  },
+  addFriendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4A90E2',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 16,
+  },
+  addFriendButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
 });
 
 export default ProfileScreen;
+
