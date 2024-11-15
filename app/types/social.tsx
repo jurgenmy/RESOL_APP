@@ -1,3 +1,4 @@
+//Social.tsx
 
 import { Task } from '../types'; // Asegúrate de importar correctamente el tipo Task
 
@@ -16,6 +17,12 @@ export interface UserProfile {
   firstName?: string; 
   lastName?: string;  
   birthdate?: string; 
+}
+
+export interface UserStats {
+  totalTasks: number;
+  completedTasks: number;
+  totalGroups: number;
 }
 
 export interface Group {

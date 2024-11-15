@@ -7,6 +7,7 @@ import { TaskService } from '../services/TaskService';
 import { Alert } from 'react-native';
 import ShareTaskModal from './ShareTaskModal';
 
+
 interface TaskItemProps {
   item: {
     id: string;

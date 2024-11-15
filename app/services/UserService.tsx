@@ -9,6 +9,8 @@ export class UserService {
     const userRef = doc(FIREBASE_DB, 'users', userId);
     const newUser: UserProfile = {
       id: userId,
+      uid: userId,
+      friendId: "",
       email,
       displayName: email.split('@')[0],
       friends: [],

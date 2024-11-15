@@ -11,7 +11,7 @@ import Login from './app/components/Login';
 import Home from './app/components/Home';
 import RegisterUser from './app/components/RegisterUser';
 import CompletedTasks from './app/components/CompletedTasks';
-import ProfileScreen from './app/components/ProfileScreen';
+import ProfileScreen from './app/components/profile/ProfileScreen';
 import GroupsScreen from './app/components/GroupsScreen';
 
 // Types
