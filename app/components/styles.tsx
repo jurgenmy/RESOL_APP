@@ -248,5 +248,24 @@ export const styles = StyleSheet.create({
       deleteButton: {
         padding: 4,
       },
+      inputError: {
+        borderColor: 'red',
+      },
+      errorText: {
+        color: 'red',
+        fontSize: 12,
+        marginBottom: 8,
+      },
+      togglePasswordButton: {
+        padding: 12,
+        alignItems: 'center',
+      },
+      togglePasswordText: {
+        color: '#4A90E2',
+        fontWeight: '500',
+      },
+      disabledButton: {
+        opacity: 0.5,
+      }
       
 });

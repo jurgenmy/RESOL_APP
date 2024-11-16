@@ -1,10 +1,9 @@
-//TaskFormModal.tsx
-
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
+// Definición del tipo de tarea
 interface Task {
   id: string;
   nombre: string;
@@ -16,6 +15,7 @@ interface Task {
   nota?: string;
 }
 
+// Definición de las propiedades esperadas para el componente
 interface TaskFormModalProps {
   visible: boolean;
   onClose: () => void;
@@ -27,6 +27,7 @@ interface TaskFormModalProps {
   setShowDatePicker: (show: boolean) => void;
 }
 
+// Tarea por defecto para inicializar
 const defaultTask: Task = {
   id: '',
   nombre: '',
@@ -47,7 +48,6 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
   editingTaskId,
   showDatePicker,
   setShowDatePicker,
-
 }) => {
   // Asegurarse de que siempre tengamos un objeto task válido
   const currentTask = task || defaultTask;
@@ -57,7 +57,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
       Alert.alert('Error', 'El nombre de la tarea es requerido');
       return;
     }
-    
+
     // Asegurarse de que todos los campos requeridos tengan valores por defecto
     const taskToSave = {
       ...currentTask,
@@ -66,10 +66,9 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
       fecha: currentTask.fecha || new Date(),
       nota: currentTask.nota || ''
     };
-    
+
     setTask(taskToSave);
     onSave();
-    
   };
 
   const updateTaskField = (field: keyof Task, value: any) => {
@@ -91,28 +90,28 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
           <Text style={styles.modalTitle}>
             {editingTaskId ? 'Editar Tarea' : 'Nueva Tarea'}
           </Text>
-          
+
           <TextInput
             style={styles.input}
             placeholder="Nombre"
             value={currentTask.nombre}
             onChangeText={(text) => updateTaskField('nombre', text)}
           />
-          
+
           <TextInput
             style={styles.input}
             placeholder="Descripción"
             value={currentTask.descripcion}
             onChangeText={(text) => updateTaskField('descripcion', text)}
           />
-          
+
           <TextInput
             style={styles.input}
             placeholder="Resolución"
             value={currentTask.resolucion}
             onChangeText={(text) => updateTaskField('resolucion', text)}
           />
-          
+
           <Picker
             selectedValue={currentTask.estado}
             style={styles.picker}
@@ -122,7 +121,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <Picker.Item label="En proceso" value="en proceso" />
             <Picker.Item label="Finalizada" value="finalizada" />
           </Picker>
-          
+
           <Picker
             selectedValue={currentTask.prioridad}
             style={styles.picker}
@@ -133,7 +132,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <Picker.Item label="Prioridad media" value="prioridad media" />
             <Picker.Item label="Prioridad alta" value="prioridad alta" />
           </Picker>
-          
+
           <TouchableOpacity
             style={[styles.button, { backgroundColor: '#4A90E2' }]}
             onPress={() => setShowDatePicker(true)}
@@ -142,7 +141,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
               Fecha: {currentTask.fecha.toLocaleDateString()}
             </Text>
           </TouchableOpacity>
-          
+
           {showDatePicker && (
             <DateTimePicker
               value={currentTask.fecha}
@@ -156,7 +155,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
               }}
             />
           )}
-          
+
           <View style={styles.modalButtons}>
             <TouchableOpacity
               style={[styles.button, { backgroundColor: '#4A90E2', marginRight: 10 }]}

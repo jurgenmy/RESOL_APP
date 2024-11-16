@@ -13,6 +13,7 @@ import RegisterUser from './app/components/RegisterUser';
 import CompletedTasks from './app/components/CompletedTasks';
 import ProfileScreen from './app/components/profile/ProfileScreen';
 import GroupsScreen from './app/components/GroupsScreen';
+import * as Notifications from 'expo-notifications';
 
 // Types
 export type RootStackParamList = {
@@ -26,16 +27,23 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export default function App() {
+export default function App() { 
+  
+  registerForPushNotifications();
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(FIREBASE_AUTH, (user) => {
       setUser(user);
-    });
+      
+    }
+  
+  );
 
     // Cleanup subscription
     return () => unsubscribe();
+
+    
   }, []);
 
   return (
@@ -105,4 +113,20 @@ export default function App() {
       </Stack.Navigator>
     </NavigationContainer>
   );
+  async function registerForPushNotifications() {
+    try {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Failed to get push token for push notification!');
+        return;
+      }
+  
+      const token = (await Notifications.getExpoPushTokenAsync()).data;
+      console.log('Expo push token:', token);
+    } catch (error) {
+      console.error('Error registering for push notifications:', error);
+    }
+  }
+  
+  
 }

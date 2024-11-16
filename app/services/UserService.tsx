@@ -9,27 +9,30 @@ export class UserService {
     const userRef = doc(FIREBASE_DB, 'users', userId);
     const newUser: UserProfile = {
       id: userId,
-      uid: userId,
-      friendId: "",
+      uid: userId,  // Usamos el mismo ID que Firebase Auth
       email,
       displayName: email.split('@')[0],
       friends: [],
       pendingFriends: [],
       createdAt: Date.now(),
-      firstName: firstName || '', // Default vacío si no se proporciona
+      firstName: firstName || '',
       lastName: lastName || '',
       birthdate: birthdate || '',
     };
     await setDoc(userRef, newUser);
   }
-  
 
   static async getUserProfile(userId: string): Promise<UserProfile | null> {
     try {
       const userRef = doc(FIREBASE_DB, 'users', userId);
       const snapshot = await getDoc(userRef);
       if (snapshot.exists()) {
-        return snapshot.data() as UserProfile;
+        const data = snapshot.data();
+        return {
+          ...data,
+          id: userId,
+          uid: userId,
+        } as UserProfile;
       }
       return null;
     } catch (error) {
@@ -37,7 +40,7 @@ export class UserService {
       return null;
     }
   }
-
+  
   static async updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<void> {
     const userRef = doc(FIREBASE_DB, 'users', userId);
     await updateDoc(userRef, {

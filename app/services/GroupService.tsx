@@ -1,5 +1,5 @@
 // services/GroupService.tsx
-import { collection, addDoc, doc, updateDoc, getDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, getDoc, query, where, getDocs, arrayUnion } from 'firebase/firestore';
 import { FIREBASE_DB } from '../../FirebaseConfig';
 import { Group } from '../types/social';
 

@@ -1,4 +1,3 @@
-// ProfileScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { ScrollView, RefreshControl, View, ActivityIndicator, Alert } from 'react-native';
 import { useProfile } from '../../hooks/useProfile';
@@ -16,40 +15,87 @@ import { FIREBASE_AUTH, FIREBASE_DB } from '../../../FirebaseConfig';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import { doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc } from 'firebase/firestore';
+import { TouchableOpacity, Text } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 
 const ProfileScreen = () => {
+  // Mover todos los estados al principio del componente
+  const [refreshing, setRefreshing] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [showAddFriendModal, setShowAddFriendModal] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
   const {
     profile,
     friends,
     pendingRequests,
     stats,
-    isLoading,
     deleteFriend,
     loadProfile,
     updateProfile,
-    addFriend,
     acceptFriend
   } = useProfile();
 
-  const [refreshing, setRefreshing] = useState(false);
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [showAddFriendModal, setShowAddFriendModal] = useState(false);
-  const [isImageLoading, setIsImageLoading] = useState(false);
-
-  // Efecto para cargar el perfil al montar el componente
+  // Unificar la lógica de carga inicial
   useEffect(() => {
     loadProfile();
   }, []);
 
-  // Efecto para recargar cuando la pantalla obtiene el foco
   useFocusEffect(
     React.useCallback(() => {
       loadProfile();
-      return () => {
-        // Cleanup si es necesario
-      };
     }, [loadProfile])
   );
+
+  const handleAddFriend = async (friendEmail: string) => {
+    if (!friendEmail) {
+      Alert.alert('Error', 'El email es requerido');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const currentUserId = FIREBASE_AUTH.currentUser?.uid;
+      if (!currentUserId) {
+        Alert.alert('Error', 'Usuario no autenticado');
+        return;
+      }
+
+      const usersRef = collection(FIREBASE_DB, 'users');
+      const emailQuery = query(usersRef, where('email', '==', friendEmail.toLowerCase().trim()));
+      const querySnapshot = await getDocs(emailQuery);
+
+      if (querySnapshot.empty) {
+        Alert.alert('Error', 'Usuario no encontrado');
+        return;
+      }
+
+      const friendDoc = querySnapshot.docs[0];
+      const friendId = friendDoc.id;
+      const friendData = friendDoc.data();
+
+      if (friendId === currentUserId) {
+        Alert.alert('Error', 'No puedes agregarte a ti mismo');
+        return;
+      }
+
+      const updatedPendingFriends = [...(friendData.pendingFriends || []), currentUserId];
+      await updateDoc(doc(FIREBASE_DB, 'users', friendId), {
+        pendingFriends: updatedPendingFriends
+      });
+
+      setShowAddFriendModal(false);
+      Alert.alert('Éxito', 'Solicitud enviada');
+      await loadProfile();
+    } catch (error) {
+      console.error('Error adding friend:', error);
+      Alert.alert('Error', 'No se pudo enviar la solicitud');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleUpdateProfileImage = async () => {
     try {
@@ -75,9 +121,7 @@ const ProfileScreen = () => {
           name: 'profile.jpg',
         } as any);
 
-        const config = {
-          method: 'post',
-          url: 'https://api.imgbb.com/1/upload',
+        const response = await axios.post('https://api.imgbb.com/1/upload', formData, {
           params: {
             key: process.env.EXPO_PUBLIC_IMGBB_API_KEY,
           },
@@ -85,19 +129,15 @@ const ProfileScreen = () => {
             'Accept': 'application/json',
             'Content-Type': 'multipart/form-data',
           },
-          data: formData,
-        };
+        });
 
-        const uploadResponse = await axios(config);
-        if (uploadResponse.data && uploadResponse.data.data.url) {
+        if (response.data?.data?.url) {
           const userId = FIREBASE_AUTH.currentUser?.uid;
           if (userId) {
-            const userRef = doc(FIREBASE_DB, 'users', userId);
-            await updateDoc(userRef, {
-              photoURL: uploadResponse.data.data.url,
+            await updateDoc(doc(FIREBASE_DB, 'users', userId), {
+              photoURL: response.data.data.url,
             });
-
-            loadProfile(); // Recargar el perfil después de actualizar la imagen
+            await loadProfile();
             Alert.alert('Éxito', 'Imagen de perfil actualizada');
           }
         }
@@ -118,8 +158,11 @@ const ProfileScreen = () => {
 
   const copyUserId = async () => {
     try {
-      await Clipboard.setStringAsync(FIREBASE_AUTH.currentUser?.uid || '');
-      Alert.alert('Éxito', 'ID copiado al portapapeles');
+      const userId = FIREBASE_AUTH.currentUser?.uid;
+      if (userId) {
+        await Clipboard.setStringAsync(userId);
+        Alert.alert('Éxito', 'ID copiado al portapapeles');
+      }
     } catch (error) {
       console.error('Error copying ID:', error);
       Alert.alert('Error', 'No se pudo copiar el ID');
@@ -135,7 +178,7 @@ const ProfileScreen = () => {
   }
 
   return (
-    <ScrollView
+    <ScrollView 
       style={styles.container}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
@@ -151,7 +194,7 @@ const ProfileScreen = () => {
           userId={FIREBASE_AUTH.currentUser?.uid || ''}
         />
       )}
-
+         
       <ProfileStats stats={stats} />
 
       <PendingRequests
@@ -159,12 +202,19 @@ const ProfileScreen = () => {
         onAcceptRequest={acceptFriend}
       />
 
-<FriendsList 
-  friends={friends}
-  onRefreshFriends={loadProfile}
-  onDeleteFriend={deleteFriend}
+      <TouchableOpacity 
+        style={styles.addFriendButton}
+        onPress={() => setShowAddFriendModal(true)}
+      >
+        <MaterialIcons name="person-add" size={12} color="#fff" />
+        <Text style={styles.addFriendButtonText}>Agregar Amigo</Text>
+      </TouchableOpacity>
 
-/>
+      <FriendsList 
+        friends={friends}
+        onRefreshFriends={loadProfile}
+        onDeleteFriend={deleteFriend}
+      />
 
       <EditProfileModal
         visible={isEditModalVisible}
@@ -176,7 +226,7 @@ const ProfileScreen = () => {
       <AddFriendModal
         visible={showAddFriendModal}
         onClose={() => setShowAddFriendModal(false)}
-        onAddFriend={addFriend}
+        onAddFriend={handleAddFriend}
       />
     </ScrollView>
   );

@@ -22,14 +22,16 @@ interface TaskItemProps {
     assignedTo?: string;
     isGroupTask?: boolean;
     groupId?: string;
+    
   };
   editTask: (id: string) => void;
   deleteTask: (id: string) => void;
   openNotesModal: (id: string) => void;
   onStatusChange?: (taskId: string, newStatus: string) => void;
+  onShare?: (taskId: string, targetId: string, isGroup: boolean) => void;
 }
 
-const TaskItem = ({ item, editTask, deleteTask, openNotesModal, onStatusChange }: TaskItemProps) => {
+const TaskItem = ({ item, editTask, deleteTask, openNotesModal, onShare }: TaskItemProps) => {
   const [showShareModal, setShowShareModal] = useState(false);
 
   const getPriorityColor = (prioridad: string) => {
@@ -52,17 +54,17 @@ const TaskItem = ({ item, editTask, deleteTask, openNotesModal, onStatusChange }
     }
     return nota;
   };
-
-  const handleStatusChange = async () => {
+  const handleShare = async (targetId: string, isGroup: boolean) => {
     try {
-      await TaskService.updateTaskStatus(item.id, 'finalizada');
-      if (onStatusChange) {
-        onStatusChange(item.id, 'finalizada');
+      if (onShare) {
+        await onShare(item.id, targetId, isGroup);
       }
+      setShowShareModal(false);
     } catch (error) {
-      Alert.alert('Error', 'No se pudo actualizar el estado de la tarea');
+      Alert.alert('Error', 'No se pudo compartir la tarea');
     }
   };
+  
 
   const fechaFormateada = item.fecha instanceof Date 
     ? item.fecha.toLocaleDateString()

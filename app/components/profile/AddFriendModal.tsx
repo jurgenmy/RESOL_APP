@@ -66,6 +66,10 @@ const AddFriendModal: React.FC<AddFriendModalProps> = ({
       </View>
     </Modal>
   );
+  
+  
+
 };
+
 
 export default AddFriendModal;

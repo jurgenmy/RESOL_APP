@@ -34,13 +34,13 @@ export const PendingRequests: React.FC<PendingRequestsProps> = ({
             </View>
             <TouchableOpacity 
               style={styles.acceptButton}
-              onPress={() => onAcceptRequest(item.uid || item.friendId)}
+              onPress={() => onAcceptRequest(item.uid || item.id)}
             >
               <Text style={styles.buttonText}>Aceptar</Text>
             </TouchableOpacity>
           </View>
         )}
-        keyExtractor={item => item.uid || item.friendId || Math.random().toString()}
+        keyExtractor={item => item.uid || item.id || Math.random().toString()}
         scrollEnabled={false}
       />
     ) : (

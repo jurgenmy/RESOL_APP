@@ -4,21 +4,19 @@ import { Task } from '../types'; // Asegúrate de importar correctamente el tipo
 
 export interface UserProfile {
   id: string;
-  uid:string;
-  friendId:string;
+  uid: string;  // Este es el ID único del usuario, no necesitamos friendId
   email: string;
   displayName: string;
   photoURL?: string;
   bio?: string;
-  friends: string[];
+  friends: string[];  // Array de UIDs de amigos
   pendingFriends: string[];
   createdAt: number;
   lastActive?: number;
-  firstName?: string; 
-  lastName?: string;  
-  birthdate?: string; 
+  firstName?: string;
+  lastName?: string;
+  birthdate?: string;
 }
-
 export interface UserStats {
   totalTasks: number;
   completedTasks: number;
@@ -35,10 +33,12 @@ export interface Group {
   createdAt: Date;
 }
 
-export interface SharedTask extends Task {
-  sharedBy: string; // ID del usuario que compartió
-  sharedWith: string[]; // IDs de usuarios o ID del grupo
-  assignedTo?: string; // ID del usuario asignado
+export interface SharedTask extends Omit<Task, 'userId'> {
+  sharedBy: string;
+  sharedByName?: string;
+  sharedWith: string[];
+  originalTaskId: string;
   isGroupTask: boolean;
+  assignedTo?: string;
   groupId?: string;
 }

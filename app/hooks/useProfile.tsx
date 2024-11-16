@@ -1,11 +1,9 @@
-// hooks/useProfile.ts
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { FIREBASE_AUTH, FIREBASE_DB } from '../../FirebaseConfig';
 import { UserService } from '../services/UserService';
 import { UserProfile, UserStats } from '../types/social';
 import { doc, updateDoc, getDoc, getDocs, query, where, collection } from 'firebase/firestore';
-import { useFocusEffect } from '@react-navigation/native';
 
 export const useProfile = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -27,16 +25,12 @@ export const useProfile = () => {
         return;
       }
 
-      console.log('Loading profile for user:', userId);
-
       const userProfile = await UserService.getUserProfile(userId);
       if (!userProfile) {
         console.log('No user profile found');
         setIsLoading(false);
         return;
       }
-
-      console.log('User profile loaded:', userProfile);
 
       setProfile(userProfile);
 
@@ -45,11 +39,30 @@ export const useProfile = () => {
         Promise.all(
           (userProfile.pendingFriends || []).map(async (friendId) => {
             const profile = await UserService.getUserProfile(friendId);
-            return profile ? { ...profile, uid: friendId, friendId } : null;
+            if (profile) {
+              const typedProfile: UserProfile = {
+                ...profile,
+                uid: friendId,
+                id: friendId // Ensure id is set to match the type
+              };
+              return typedProfile;
+            }
+            return null;
           })
         ),
         Promise.all(
-          (userProfile.friends || []).map(friendId => UserService.getUserProfile(friendId))
+          (userProfile.friends || []).map(async (friendId) => {
+            const profile = await UserService.getUserProfile(friendId);
+            if (profile) {
+              const typedProfile: UserProfile = {
+                ...profile,
+                uid: friendId,
+                id: friendId // Ensure id is set to match the type
+              };
+              return typedProfile;
+            }
+            return null;
+          })
         ),
         getDoc(doc(FIREBASE_DB, 'userStats', userId))
       ]);
@@ -60,8 +73,6 @@ export const useProfile = () => {
       if (statsData.exists()) {
         setStats(statsData.data() as UserStats);
       }
-
-      console.log('Profile data loaded successfully');
     } catch (error) {
       console.error('Error loading profile:', error);
       Alert.alert('Error', 'No se pudo cargar el perfil');
@@ -111,7 +122,7 @@ export const useProfile = () => {
         throw new Error('No puedes agregarte a ti mismo');
       }
 
-      const friendData = friendDoc.data();
+      const friendData = friendDoc.data() as UserProfile;
       await updateDoc(doc(FIREBASE_DB, 'users', friendId), {
         pendingFriends: [...(friendData.pendingFriends || []), currentUserId]
       });
@@ -139,8 +150,8 @@ export const useProfile = () => {
         getDoc(doc(FIREBASE_DB, 'users', friendId))
       ]);
 
-      const userData = userDoc.data();
-      const friendData = friendDoc.data();
+      const userData = userDoc.data() as UserProfile;
+      const friendData = friendDoc.data() as UserProfile;
 
       if (!userData || !friendData) {
         throw new Error('Datos de usuario no encontrados');
@@ -149,7 +160,7 @@ export const useProfile = () => {
       await Promise.all([
         updateDoc(doc(FIREBASE_DB, 'users', userId), {
           friends: [...new Set([...(userData.friends || []), friendId])],
-          pendingFriends: (userData.pendingFriends || []).filter((id:string) => id !== friendId)
+          pendingFriends: (userData.pendingFriends || []).filter(id => id !== friendId)
         }),
         updateDoc(doc(FIREBASE_DB, 'users', friendId), {
           friends: [...new Set([...(friendData.friends || []), userId])]
@@ -165,6 +176,7 @@ export const useProfile = () => {
       setIsLoading(false);
     }
   };
+
   const deleteFriend = async (friendId: string) => {
     try {
       setIsLoading(true);
@@ -173,35 +185,29 @@ export const useProfile = () => {
         throw new Error('ID de usuario inválido');
       }
 
-      // Get both user documents
       const [userDoc, friendDoc] = await Promise.all([
         getDoc(doc(FIREBASE_DB, 'users', userId)),
         getDoc(doc(FIREBASE_DB, 'users', friendId))
       ]);
 
-      const userData = userDoc.data();
-      const friendData = friendDoc.data();
+      const userData = userDoc.data() as UserProfile;
+      const friendData = friendDoc.data() as UserProfile;
 
       if (!userData || !friendData) {
         throw new Error('Datos de usuario no encontrados');
       }
 
-      // Remove friend from both users' friend lists
       await Promise.all([
         updateDoc(doc(FIREBASE_DB, 'users', userId), {
-          friends: (userData.friends || []).filter((id: string) => id !== friendId)
+          friends: userData.friends.filter(id => id !== friendId)
         }),
         updateDoc(doc(FIREBASE_DB, 'users', friendId), {
-          friends: (friendData.friends || []).filter((id: string) => id !== userId)
+          friends: friendData.friends.filter(id => id !== userId)
         })
       ]);
 
-      // Update local state
-      setFriends(prevFriends => 
-        prevFriends.filter(friend => friend.uid !== friendId)
-      );
+      setFriends(prevFriends => prevFriends.filter(friend => friend.uid !== friendId));
 
-      console.log('Friend deleted successfully');
     } catch (error) {
       console.error('Error deleting friend:', error);
       throw new Error('No se pudo eliminar al amigo');
@@ -220,6 +226,6 @@ export const useProfile = () => {
     updateProfile,
     addFriend,
     acceptFriend,
-    deleteFriend, // Add the new function to the return object
+    deleteFriend,
   };
 };
