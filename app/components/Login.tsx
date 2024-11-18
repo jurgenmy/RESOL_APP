@@ -196,7 +196,7 @@ const LoginForm = ({ navigation }: any) => {
               rememberMe && styles.checkboxChecked
             ]} />
           </TouchableOpacity>
-          <Text style={styles.rememberMeText}>Remember me</Text>
+          <Text style={styles.rememberMeText}>Recuérdame</Text>
         </View>
 
         {error ? (
@@ -211,7 +211,7 @@ const LoginForm = ({ navigation }: any) => {
               style={styles.button} 
               onPress={handleLogin}
             >
-              <Text style={styles.buttonText}>Sign In</Text>
+              <Text style={styles.buttonText}>Iniciar sesión</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -219,13 +219,13 @@ const LoginForm = ({ navigation }: any) => {
               onPress={handleForgotPassword}
             >
               <Text style={styles.forgotPasswordText}>
-                Forgot Password?
+                Olvidé mi contraseña
               </Text>
             </TouchableOpacity>
 
             <View style={styles.divider}>
               <View style={styles.line} />
-              <Text style={styles.orText}>OR</Text>
+              <Text style={styles.orText}>O</Text>
               <View style={styles.line} />
             </View>
 
@@ -233,7 +233,7 @@ const LoginForm = ({ navigation }: any) => {
               style={styles.registerButton}
               onPress={() => navigation.navigate('RegisterUser')}
             >
-              <Text style={styles.registerText}>Create Account</Text>
+              <Text style={styles.registerText}>Crear Usuario</Text>
             </TouchableOpacity>
           </>
         )}

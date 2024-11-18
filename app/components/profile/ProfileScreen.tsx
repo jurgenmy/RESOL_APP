@@ -195,7 +195,7 @@ const ProfileScreen = () => {
         />
       )}
          
-      <ProfileStats stats={stats} />
+      {/* <ProfileStats stats={stats} /> */}
 
       <PendingRequests
         requests={pendingRequests}

@@ -213,7 +213,7 @@ const RegisterUser = ({ navigation }: any) => {
       Alert.alert(
         'Registro exitoso',
         'Tu cuenta ha sido creada correctamente',
-        [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
+       // [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
       );
     } catch (error: any) {
       let errorMessage = 'Error al crear la cuenta';

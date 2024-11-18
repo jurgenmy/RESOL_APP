@@ -161,9 +161,9 @@ const ShareTaskModal = ({ visible, onClose, taskId }: ShareTaskModalProps) => {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tab, selectedTab === 'groups' && styles.activeTab]}
-              onPress={() => setSelectedTab('groups')}
+              // onPress={() => setSelectedTab('groups')}
             >
-              <Text>Grupos</Text>
+              {/* <Text>Grupos</Text> */}
             </TouchableOpacity>
           </View>
 
