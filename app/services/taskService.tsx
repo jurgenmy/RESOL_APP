@@ -29,6 +29,11 @@ interface Task {
   isShared?: boolean;
   sharedWith?: string[];
   sharedWithGroup?: string;
+  notificacion?: {
+    tipo: 'mismo-dia' | 'dias-antes';
+    hora: Date;
+    diasAntes?: number;
+  };
 }
 
 interface SharedTask extends Omit<Task, 'userId'> {
@@ -377,20 +382,35 @@ export class TaskService {
       const tasksWithUserInfo = await Promise.all(
         uniqueTasks.map(async task => {
           try {
-            const userRef = doc(FIREBASE_DB, 'users', task.sharedBy);
-            const userDoc = await getDoc(userRef);
-            const userData = userDoc.data();
+            // Obtener info del usuario que compartió
+            const sharedByUserRef = doc(FIREBASE_DB, 'users', task.sharedBy);
+            const sharedByUserDoc = await getDoc(sharedByUserRef);
+            const sharedByUserData = sharedByUserDoc.data();
+      
+            // Obtener info del usuario asignado si existe
+            let assignedToName = task.assignedTo;
+            if (task.assignedTo) {
+              const assignedToUserRef = doc(FIREBASE_DB, 'users', task.assignedTo);
+              const assignedToUserDoc = await getDoc(assignedToUserRef);
+              const assignedToUserData = assignedToUserDoc.data();
+              assignedToName = assignedToUserData?.displayName || assignedToUserData?.email || task.assignedTo;
+              
+              
+            }
+      
             return {
               ...task,
               fecha: task.fecha instanceof Timestamp ? task.fecha.toDate() : task.fecha,
-              sharedByName: userData?.displayName || userData?.email || task.sharedBy
+              sharedByName: sharedByUserData?.displayName || sharedByUserData?.email || task.sharedBy,
+              assignedToName: assignedToName
             };
           } catch (error) {
             console.error('Error fetching user info for task:', task.id, error);
             return {
               ...task,
               fecha: task.fecha instanceof Timestamp ? task.fecha.toDate() : task.fecha,
-              sharedByName: task.sharedBy
+              sharedByName: task.sharedBy,
+              assignedToName: task.assignedTo
             };
           }
         })
@@ -491,4 +511,6 @@ export class TaskService {
   static isSharedTask(task: any): task is SharedTask {
     return 'sharedBy' in task && 'sharedWith' in task;
   }
+
+  
 }

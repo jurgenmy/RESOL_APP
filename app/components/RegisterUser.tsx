@@ -213,7 +213,7 @@ const RegisterUser = ({ navigation }: any) => {
       Alert.alert(
         'Registro exitoso',
         'Tu cuenta ha sido creada correctamente',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+        [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
       );
     } catch (error: any) {
       let errorMessage = 'Error al crear la cuenta';
@@ -285,13 +285,14 @@ const RegisterUser = ({ navigation }: any) => {
   {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
   <TextInput
-    style={[styles.input, errors.birthdate ? styles.inputError : null]}
-    placeholder="Fecha de Nacimiento (DD/MM/AAAA)"
-    value={formData.birthdate}
-    onChangeText={(value) => handleChange('birthdate', value)}
-    keyboardType="numeric"
-    editable={!loading}
-  />
+  style={[styles.input, errors.birthdate ? styles.inputError : null]}
+  placeholder="Fecha de Nacimiento (DD/MM/AAAA)"
+  value={formData.birthdate}
+  onChangeText={(value) => handleChange('birthdate', value)}
+  keyboardType="default"
+  editable={!loading}
+/>
+
   {errors.birthdate && <Text style={styles.errorText}>{errors.birthdate}</Text>}
 
   <TextInput

@@ -1,12 +1,9 @@
-//TaskItem.tsx
-
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TaskService } from '../services/TaskService';
 import { Alert } from 'react-native';
 import ShareTaskModal from './ShareTaskModal';
-
 
 interface TaskItemProps {
   item: {
@@ -18,11 +15,11 @@ interface TaskItemProps {
     fecha: Date;
     nota?: string;
     sharedBy?: string;
+    sharedByName?: string; // Nuevo campo que viene de fetchSharedTasks
     sharedWith?: string[];
-    assignedTo?: string;
     isGroupTask?: boolean;
     groupId?: string;
-    
+    assignedTo?: string;
   };
   editTask: (id: string) => void;
   deleteTask: (id: string) => void;
@@ -54,21 +51,33 @@ const TaskItem = ({ item, editTask, deleteTask, openNotesModal, onShare }: TaskI
     }
     return nota;
   };
-  const handleShare = async (targetId: string, isGroup: boolean) => {
-    try {
-      if (onShare) {
-        await onShare(item.id, targetId, isGroup);
-      }
-      setShowShareModal(false);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo compartir la tarea');
-    }
-  };
-  
 
   const fechaFormateada = item.fecha instanceof Date 
     ? item.fecha.toLocaleDateString()
     : new Date(item.fecha).toLocaleDateString();
+
+  // Renderizado condicional del indicador de compartido
+  const renderSharedInfo = () => {
+    if (!item.sharedBy) return null;
+
+    return (
+      <View style={styles.sharedInfo}>
+        <Text style={styles.sharedText}>
+          Compartido por: {item.sharedByName || 'Usuario desconocido'}
+        </Text>
+        {item.isGroupTask && item.groupId && (
+          <Text style={styles.sharedText}>
+            Grupo: {item.groupId}
+          </Text>
+        )}
+        {/* {item.assignedTo && (
+          <Text style={styles.sharedText}>
+            Asignado a: {item.assignedTo}
+          </Text>
+        )} */}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.taskItem}>
@@ -133,23 +142,7 @@ const TaskItem = ({ item, editTask, deleteTask, openNotesModal, onShare }: TaskI
         </TouchableOpacity>
       )}
 
-      {item.sharedBy && (
-        <View style={styles.sharedInfo}>
-          <Text style={styles.sharedText}>
-            Compartido por: {item.sharedBy}
-          </Text>
-          {item.isGroupTask && item.groupId && (
-            <Text style={styles.sharedText}>
-              Grupo: {item.groupId}
-            </Text>
-          )}
-          {item.assignedTo && (
-            <Text style={styles.sharedText}>
-              Asignado a: {item.assignedTo}
-            </Text>
-          )}
-        </View>
-      )}
+      {renderSharedInfo()}
 
       <ShareTaskModal
         visible={showShareModal}

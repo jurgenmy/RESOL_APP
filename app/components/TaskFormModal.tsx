@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useState } from 'react';
 
-// Definición del tipo de tarea
 interface Task {
   id: string;
   nombre: string;
@@ -13,21 +13,24 @@ interface Task {
   prioridad: string;
   fecha: Date;
   nota?: string;
+  notificacion?: {
+    tipo: "mismo-dia" | "dias-antes";
+    hora: Date;
+    diasAntes?: number;
+  };
 }
 
-// Definición de las propiedades esperadas para el componente
 interface TaskFormModalProps {
   visible: boolean;
   onClose: () => void;
   task: Task;
-  setTask: (task: Task) => void;
+  setTask: React.Dispatch<React.SetStateAction<Task>>;
   onSave: () => void;
   editingTaskId: string | null;
   showDatePicker: boolean;
   setShowDatePicker: (show: boolean) => void;
 }
 
-// Tarea por defecto para inicializar
 const defaultTask: Task = {
   id: '',
   nombre: '',
@@ -36,7 +39,12 @@ const defaultTask: Task = {
   estado: 'en proceso',
   prioridad: 'prioridad media',
   fecha: new Date(),
-  nota: ''
+  nota: '',
+  notificacion: {
+    tipo: 'mismo-dia',
+    hora: new Date(),
+    diasAntes: 0
+  }
 };
 
 const TaskFormModal: React.FC<TaskFormModalProps> = ({
@@ -49,8 +57,30 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
   showDatePicker,
   setShowDatePicker,
 }) => {
-  // Asegurarse de que siempre tengamos un objeto task válido
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const currentTask = task || defaultTask;
+
+
+  // Ensure notification object is properly initialized
+  const ensureDate = (date: Date | undefined): Date => {
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+      return new Date();
+    }
+    return date;
+  };
+
+  const ensureNotification = () => {
+    if (!currentTask.notificacion || !(currentTask.notificacion.hora instanceof Date)) {
+      setTask(prevTask => ({
+        ...prevTask,
+        notificacion: {
+          tipo: prevTask.notificacion?.tipo || 'mismo-dia',
+          hora: ensureDate(prevTask.notificacion?.hora),
+          diasAntes: prevTask.notificacion?.diasAntes || 0
+        }
+      }));
+    }
+  };
 
   const handleSave = () => {
     if (!currentTask.nombre?.trim()) {
@@ -58,24 +88,54 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
       return;
     }
 
-    // Asegurarse de que todos los campos requeridos tengan valores por defecto
+  ensureNotification();
     const taskToSave = {
       ...currentTask,
       estado: currentTask.estado || 'en proceso',
       prioridad: currentTask.prioridad || 'prioridad media',
-      fecha: currentTask.fecha || new Date(),
-      nota: currentTask.nota || ''
+      fecha: ensureDate(currentTask.fecha),
+      nota: currentTask.nota || '',
+      notificacion: {
+        tipo: currentTask.notificacion?.tipo || 'mismo-dia',
+        hora: ensureDate(currentTask.notificacion?.hora),
+        diasAntes: currentTask.notificacion?.diasAntes || 0
+      }
     };
-
     setTask(taskToSave);
     onSave();
   };
 
   const updateTaskField = (field: keyof Task, value: any) => {
-    setTask({
-      ...currentTask,
+    setTask(prevTask => ({
+      ...prevTask,
       [field]: value
-    });
+    }));
+  };
+
+  const updateNotificacion = (
+    field: keyof NonNullable<Task['notificacion']>,
+    value: any
+  ) => {
+    ensureNotification();
+    setTask(prevTask => ({
+      ...prevTask,
+      notificacion: {
+        ...prevTask.notificacion,
+        tipo: prevTask.notificacion?.tipo || 'mismo-dia',
+        hora: prevTask.notificacion?.hora || new Date(),
+        [field]: value
+      }
+    }));
+  };
+
+  // Format time with a fallback
+  const formatTime = (date: Date | undefined): string => {
+    const validDate = ensureDate(date);
+    try {
+      return validDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
   };
 
   return (
@@ -142,15 +202,63 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
             </Text>
           </TouchableOpacity>
 
+          <View style={styles.notificationSection}>
+            <Text style={styles.sectionTitle}>Configurar Notificación</Text>
+            
+            <Picker
+              selectedValue={currentTask.notificacion?.tipo || 'mismo-dia'}
+              style={styles.picker}
+              onValueChange={(itemValue) => updateNotificacion('tipo', itemValue)}
+            >
+              <Picker.Item label="El mismo día" value="mismo-dia" />
+              <Picker.Item label="Días antes" value="dias-antes" />
+            </Picker>
+
+            {currentTask.notificacion?.tipo === 'dias-antes' && (
+              <View style={styles.diasAntesContainer}>
+                <Text>Días antes:</Text>
+                <TextInput
+                  style={styles.diasAntesInput}
+                  keyboardType="numeric"
+                  value={currentTask.notificacion?.diasAntes?.toString() || '0'}
+                  onChangeText={(text) => updateNotificacion('diasAntes', parseInt(text) || 0)}
+                />
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: '#4A90E2', marginTop: 10 }]}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Text style={styles.buttonText}>
+              Hora: {formatTime(ensureDate(currentTask.notificacion?.hora))}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {showDatePicker && (
             <DateTimePicker
-              value={currentTask.fecha}
+            value={ensureDate(currentTask.notificacion?.hora)}
               mode="date"
               display="default"
               onChange={(event, selectedDate) => {
                 setShowDatePicker(false);
                 if (selectedDate) {
                   updateTaskField('fecha', selectedDate);
+                }
+              }}
+            />
+          )}
+
+          {showTimePicker && (
+            <DateTimePicker
+              value={currentTask.notificacion?.hora || new Date()}
+              mode="time"
+              display="default"
+              onChange={(event, selectedDate) => {
+                setShowTimePicker(false);
+                if (selectedDate) {
+                  updateNotificacion('hora', selectedDate);
                 }
               }}
             />
@@ -232,6 +340,35 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     width: '100%',
     marginTop: 20,
+  },
+  notificationSection: {
+    width: '100%',
+    marginTop: 15,
+    padding: 10,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#008080',
+  },
+  diasAntesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 10,
+  },
+  diasAntesInput: {
+    height: 40,
+    width: 60,
+    marginLeft: 10,
+    borderColor: '#ddd',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#fff',
   },
 });
 

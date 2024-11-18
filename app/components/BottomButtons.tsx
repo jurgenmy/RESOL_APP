@@ -29,12 +29,12 @@ const BottomButtons = ({ onCompletedPress, onAddPress }: BottomButtonsProps) => 
         <Text style={styles.buttonText}>Perfil</Text>
       </TouchableOpacity>
       
-      <TouchableOpacity 
+      {/* <TouchableOpacity 
         onPress={() => navigation.navigate('Groups')} 
         style={[styles.button, styles.bottomButton]}
       >
         <Text style={styles.buttonText}>Grupos</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
       <TouchableOpacity 
         onPress={onCompletedPress} 

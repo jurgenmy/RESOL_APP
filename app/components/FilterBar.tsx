@@ -1,6 +1,5 @@
-// FilterBar.tsx
-import React from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import React, { useState } from 'react';
+import { View, TextInput, StyleSheet, TouchableOpacity, Text, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface FilterBarProps {
@@ -12,6 +11,23 @@ interface FilterBarProps {
 }
 
 const FilterBar = ({ searchQuery, setSearchQuery, sortBy, setSortBy, sortDirection }: FilterBarProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [rotateAnimation] = useState(new Animated.Value(0));
+
+  const toggleExpand = () => {
+    setIsExpanded(!isExpanded);
+    Animated.timing(rotateAnimation, {
+      toValue: isExpanded ? 0 : 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const rotate = rotateAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '90deg'],
+  });
+
   const getSortIcon = (currentSortBy: string) => {
     if (sortBy !== currentSortBy) return null;
     return sortDirection === 'asc' ? 
@@ -21,72 +37,113 @@ const FilterBar = ({ searchQuery, setSearchQuery, sortBy, setSortBy, sortDirecti
 
   return (
     <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#666" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar tareas..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-      <View style={styles.sortContainer}>
-        {['nombre', 'prioridad', 'fecha'].map((option) => (
-          <TouchableOpacity
-            key={option}
-            style={[styles.sortButton, sortBy === option && styles.activeSort]}
-            onPress={() => setSortBy(option)}
-          >
-            <View style={styles.sortButtonContent}>
-              <Text style={[
-                styles.sortButtonText,
-                sortBy === option && styles.activeSortText
-              ]}>
-                {option.charAt(0).toUpperCase() + option.slice(1)}
-              </Text>
-              {getSortIcon(option)}
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <TouchableOpacity 
+        style={styles.headerContainer}
+        onPress={toggleExpand}
+      >
+        <Text style={styles.headerText}> Filtros 🔎</Text>
+        <Animated.View style={{ transform: [{ rotate }] }}>
+          <Ionicons name="chevron-forward" size={24} color="#4A90E2" />
+        </Animated.View>
+      </TouchableOpacity>
+
+      {isExpanded && (
+        <View style={styles.contentContainer}>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#999" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar tareas..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#bbb"
+            />
+          </View>
+          <View style={styles.sortContainer}>
+            {['nombre', 'prioridad', 'fecha'].map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[styles.sortButton, sortBy === option && styles.activeSort]}
+                onPress={() => setSortBy(option)}
+              >
+                <View style={styles.sortButtonContent}>
+                  <Text style={[
+                    styles.sortButtonText,
+                    sortBy === option && styles.activeSortText
+                  ]}>
+                    {option.charAt(0).toUpperCase() + option.slice(1)}
+                  </Text>
+                  {getSortIcon(option)}
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 10,
     backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderRadius: 10,
+    margin: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 7,
+    backgroundColor: '#f7f9fc',
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+  },
+  headerText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  contentContainer: {
+    padding: 15,
+    backgroundColor: '#f7f9fc',
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    padding: 8,
-    marginBottom: 10,
+    backgroundColor: '#e8edf3',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 15,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 10,
     fontSize: 16,
+    color: '#333',
   },
   sortContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
   },
   sortButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 15,
-    backgroundColor: '#f5f5f5',
+    flex: 1,
+    paddingVertical: 10,
+    marginHorizontal: 5,
+    borderRadius: 20,
+    backgroundColor: '#e8edf3',
+    alignItems: 'center',
   },
   sortButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
   },
   activeSort: {
     backgroundColor: '#4A90E2',
@@ -98,6 +155,7 @@ const styles = StyleSheet.create({
   },
   activeSortText: {
     color: 'white',
+    fontWeight: '700',
   },
 });
 

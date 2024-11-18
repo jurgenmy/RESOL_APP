@@ -9,6 +9,11 @@ export interface Task {
     prioridad: string;
     fecha: Date;
     nota?: string;
+    notificacion?: {
+      tipo: 'mismo-dia' | 'dias-antes';
+      hora: Date;
+      diasAntes?: number;
+    };
   }
   
   export type TaskStatus = 'en espera' | 'en proceso' | 'finalizada';
