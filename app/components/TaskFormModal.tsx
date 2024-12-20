@@ -165,12 +165,14 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
             onChangeText={(text) => updateTaskField('descripcion', text)}
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Resolución"
-            value={currentTask.resolucion}
-            onChangeText={(text) => updateTaskField('resolucion', text)}
-          />
+        {(currentTask.estado === 'finalizada') && (
+            <TextInput
+              style={styles.input}
+              placeholder="Resolución"
+              value={currentTask.resolucion}
+              onChangeText={(text) => updateTaskField('resolucion', text)}
+            />
+          )}
 
           <Picker
             selectedValue={currentTask.estado}

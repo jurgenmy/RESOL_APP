@@ -1,5 +1,3 @@
-//RegisterUser.tsx
-
 import React, { useState, useCallback } from 'react';
 import { 
   View, 
@@ -21,7 +19,6 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 
-// Tipos para validación
 interface UserData {
   email: string;
   password: string;
@@ -41,7 +38,6 @@ interface ValidationErrors {
 }
 
 const RegisterUser = ({ navigation }: any) => {
-  // Estados para el formulario
   const [formData, setFormData] = useState<UserData>({
     email: '',
     password: '',
@@ -50,18 +46,16 @@ const RegisterUser = ({ navigation }: any) => {
     lastName: '',
     birthdate: ''
   });
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [localImageUri, setLocalImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
 
-  // Validadores
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
   const validatePassword = (password: string): boolean => {
-    // Mínimo 8 caracteres, al menos una letra mayúscula, una minúscula y un número
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/;
     return passwordRegex.test(password);
   };
@@ -77,14 +71,11 @@ const RegisterUser = ({ navigation }: any) => {
     return date < now && (now.getFullYear() - year) >= 13;
   };
 
-  // Manejador de cambios en el formulario
   const handleChange = (field: keyof UserData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Limpiar error del campo cuando se modifica
     setErrors(prev => ({ ...prev, [field]: undefined }));
   };
 
-  // Validación del formulario completo
   const validateForm = (): boolean => {
     const newErrors: ValidationErrors = {};
 
@@ -116,14 +107,17 @@ const RegisterUser = ({ navigation }: any) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Subida de imagen optimizada
   const uploadImageToImgBB = async (imageUri: string): Promise<string> => {
     const response = await fetch(imageUri);
     const blob = await response.blob();
     
     const formData = new FormData();
-    formData.append('image', blob, 'profile.jpg');
-
+    formData.append('image', {
+      uri: imageUri,
+      type: 'image/jpeg',
+      name: 'profile.jpg',
+    } as any);
+    
     try {
       const { data } = await axios.post('https://api.imgbb.com/1/upload', formData, {
         params: { key: process.env.EXPO_PUBLIC_IMGBB_API_KEY },
@@ -136,7 +130,6 @@ const RegisterUser = ({ navigation }: any) => {
     }
   };
 
-  // Selector de imagen mejorado
   const handlePickImage = useCallback(async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -149,23 +142,17 @@ const RegisterUser = ({ navigation }: any) => {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.7, // Controla la calidad de la imagen.
+        quality: 0.7,
       });
-      
 
       if (!result.canceled && result.assets[0].uri) {
-        setLoading(true);
-        const imageUrl = await uploadImageToImgBB(result.assets[0].uri);
-        setProfileImage(imageUrl);
+        setLocalImageUri(result.assets[0].uri);
       }
     } catch (error) {
       Alert.alert('Error', 'No se pudo cargar la imagen');
-    } finally {
-      setLoading(false);
     }
   }, []);
 
-  // Registro de usuario mejorado
   const handleRegister = async () => {
     if (!validateForm()) {
       Alert.alert('Error', 'Por favor corrija los errores en el formulario');
@@ -174,6 +161,16 @@ const RegisterUser = ({ navigation }: any) => {
 
     setLoading(true);
     try {
+      // Upload image to ImgBB if there's a local image
+      let uploadedImageUrl = null;
+      if (localImageUri) {
+        try {
+          uploadedImageUrl = await uploadImageToImgBB(localImageUri);
+        } catch (error) {
+          Alert.alert('Advertencia', 'No se pudo subir la imagen, pero continuaremos con el registro');
+        }
+      }
+
       const userCredential = await createUserWithEmailAndPassword(
         FIREBASE_AUTH,
         formData.email,
@@ -183,13 +180,11 @@ const RegisterUser = ({ navigation }: any) => {
       const user = userCredential.user;
       const displayName = `${formData.firstName} ${formData.lastName}`;
 
-      // Actualizar perfil de autenticación
       await updateProfile(user, {
         displayName,
-        photoURL: profileImage
+        photoURL: uploadedImageUrl
       });
 
-      // Crear documento en Firestore
       await setDoc(doc(FIREBASE_DB, "users", user.uid), {
         uid: user.uid,
         email: formData.email,
@@ -197,7 +192,7 @@ const RegisterUser = ({ navigation }: any) => {
         firstName: formData.firstName,
         lastName: formData.lastName,
         birthdate: formData.birthdate,
-        photoURL: profileImage,
+        photoURL: uploadedImageUrl,
         bio: '',
         friends: [],
         pendingFriends: [],
@@ -212,8 +207,7 @@ const RegisterUser = ({ navigation }: any) => {
 
       Alert.alert(
         'Registro exitoso',
-        'Tu cuenta ha sido creada correctamente',
-       // [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
+        'Tu cuenta ha sido creada correctamente'
       );
     } catch (error: any) {
       let errorMessage = 'Error al crear la cuenta';
@@ -244,93 +238,91 @@ const RegisterUser = ({ navigation }: any) => {
           ) : (
             <>
               <Image 
-                source={profileImage ? { uri: profileImage } : require('../../default-profile.png')} 
+                source={localImageUri ? { uri: localImageUri } : require('../../default-profile.png')} 
                 style={styles.profileImage} 
               />
               <Text style={styles.uploadText}>
-                {profileImage ? 'Cambiar foto' : 'Seleccionar foto de perfil'}
+                {localImageUri ? 'Cambiar foto' : 'Seleccionar foto de perfil'}
               </Text>
             </>
           )}
         </TouchableOpacity>
 
         <View style={styles.form}>
-  <TextInput
-    style={[styles.input, errors.firstName ? styles.inputError : null]}
-    placeholder="Nombre"
-    value={formData.firstName}
-    onChangeText={(value) => handleChange('firstName', value)}
-    editable={!loading}
-  />
-  {errors.firstName && <Text style={styles.errorText}>{errors.firstName}</Text>}
+          <TextInput
+            style={[styles.input, errors.firstName ? styles.inputError : null]}
+            placeholder="Nombre"
+            value={formData.firstName}
+            onChangeText={(value) => handleChange('firstName', value)}
+            editable={!loading}
+          />
+          {errors.firstName && <Text style={styles.errorText}>{errors.firstName}</Text>}
 
-  <TextInput
-    style={[styles.input, errors.lastName ? styles.inputError : null]}
-    placeholder="Apellido"
-    value={formData.lastName}
-    onChangeText={(value) => handleChange('lastName', value)}
-    editable={!loading}
-  />
-  {errors.lastName && <Text style={styles.errorText}>{errors.lastName}</Text>}
+          <TextInput
+            style={[styles.input, errors.lastName ? styles.inputError : null]}
+            placeholder="Apellido"
+            value={formData.lastName}
+            onChangeText={(value) => handleChange('lastName', value)}
+            editable={!loading}
+          />
+          {errors.lastName && <Text style={styles.errorText}>{errors.lastName}</Text>}
 
-  <TextInput
-    style={[styles.input, errors.email ? styles.inputError : null]}
-    placeholder="Correo Electrónico"
-    value={formData.email}
-    onChangeText={(value) => handleChange('email', value)}
-    keyboardType="email-address"
-    autoCapitalize="none"
-    editable={!loading}
-  />
-  {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+          <TextInput
+            style={[styles.input, errors.email ? styles.inputError : null]}
+            placeholder="Correo Electrónico"
+            value={formData.email}
+            onChangeText={(value) => handleChange('email', value)}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!loading}
+          />
+          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
-  <TextInput
-  style={[styles.input, errors.birthdate ? styles.inputError : null]}
-  placeholder="Fecha de Nacimiento (DD/MM/AAAA)"
-  value={formData.birthdate}
-  onChangeText={(value) => handleChange('birthdate', value)}
-  keyboardType="default"
-  editable={!loading}
-/>
+          <TextInput
+            style={[styles.input, errors.birthdate ? styles.inputError : null]}
+            placeholder="Fecha de Nacimiento (DD/MM/AAAA)"
+            value={formData.birthdate}
+            onChangeText={(value) => handleChange('birthdate', value)}
+            keyboardType="default"
+            editable={!loading}
+          />
+          {errors.birthdate && <Text style={styles.errorText}>{errors.birthdate}</Text>}
 
-  {errors.birthdate && <Text style={styles.errorText}>{errors.birthdate}</Text>}
+          <TextInput
+            style={[styles.input, errors.password ? styles.inputError : null]}
+            placeholder="Contraseña"
+            value={formData.password}
+            onChangeText={(value) => handleChange('password', value)}
+            secureTextEntry
+            editable={!loading}
+          />
+          {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
 
-  <TextInput
-    style={[styles.input, errors.password ? styles.inputError : null]}
-    placeholder="Contraseña"
-    value={formData.password}
-    onChangeText={(value) => handleChange('password', value)}
-    secureTextEntry
-    editable={!loading}
-  />
-  {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+          <TextInput
+            style={[styles.input, errors.confirmPassword ? styles.inputError : null]}
+            placeholder="Confirmar Contraseña"
+            value={formData.confirmPassword}
+            onChangeText={(value) => handleChange('confirmPassword', value)}
+            secureTextEntry
+            editable={!loading}
+          />
+          {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+        </View>
 
-  <TextInput
-    style={[styles.input, errors.confirmPassword ? styles.inputError : null]}
-    placeholder="Confirmar Contraseña"
-    value={formData.confirmPassword}
-    onChangeText={(value) => handleChange('confirmPassword', value)}
-    secureTextEntry
-    editable={!loading}
-  />
-  {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
-</View>
-
-<View style={styles.buttonContainer}>
-  <Button
-    title={loading ? 'Registrando...' : 'Registrar'}
-    onPress={handleRegister}
-    disabled={loading}
-    color="#007aff"
-  />
-  <Button
-    title="Volver al Login"
-    onPress={() => navigation.navigate('Login')}
-    disabled={loading}
-    color="#007aff"
-  />
-</View>
-
+        <View style={styles.buttonContainer}>
+          <Button
+            title={loading ? 'Registrando...' : 'Registrar'}
+            onPress={handleRegister}
+            disabled={loading}
+            color="#007aff"
+          />
+          <Button
+            title="Volver al Login"
+            onPress={() => navigation.navigate('Login')}
+            disabled={loading}
+            color="#007aff"
+          />
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -339,62 +331,59 @@ const RegisterUser = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5'
+    backgroundColor: '#fff',
   },
   scrollContainer: {
-    flexGrow: 1,
     padding: 20,
-    paddingBottom: 40
+    alignItems: 'center',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginVertical: 20,
-    textAlign: 'center',
-    color: '#333'
-  },
-  form: {
-    width: '100%'
-  },
-  input: {
-    height: 45,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    marginBottom: 10,
-    paddingHorizontal: 15,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    fontSize: 16
-  },
-  inputError: {
-    borderColor: '#ff3b30'
-  },
-  errorText: {
-    color: '#ff3b30',
-    fontSize: 12,
-    marginBottom: 10,
-    marginLeft: 5
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20
+    marginBottom: 20,
+    color: '#000',
   },
   imageContainer: {
     alignItems: 'center',
-    marginBottom: 20
+    marginBottom: 20,
   },
   profileImage: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#ddd'
+    marginBottom: 10,
   },
   uploadText: {
-    marginTop: 8,
     color: '#007aff',
-    fontSize: 16
-  }
+    fontSize: 16,
+  },
+  form: {
+    width: '100%',
+    maxWidth: 400,
+  },
+  input: {
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    marginBottom: 10,
+    backgroundColor: '#fff',
+  },
+  inputError: {
+    borderColor: 'red',
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginBottom: 10,
+  },
+  buttonContainer: {
+    width: '100%',
+    maxWidth: 400,
+    gap: 10,
+    marginTop: 20,
+  },
 });
 
 export default RegisterUser;

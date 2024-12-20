@@ -229,11 +229,13 @@ export const styles = StyleSheet.create({
       addFriendButton: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: '#4A90E2',
-        paddingHorizontal: 16,
+        paddingHorizontal: 12,
         paddingVertical: 8,
-        borderRadius: 20,
-        marginTop: 16,
+        borderRadius: 8,
+        alignSelf: 'center',
+      
       },
       addFriendButtonText: {
         color: '#fff',

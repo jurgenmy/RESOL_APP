@@ -134,7 +134,7 @@ const CompletedTasks = ({ navigation }) => {
         <Ionicons 
           name={sortOrder === 'asc' ? 'arrow-up' : 'arrow-down'} 
           size={24} 
-          color="#008080" 
+          color="#2D9CDB" 
         />
       </TouchableOpacity>
     </View>
@@ -143,7 +143,7 @@ const CompletedTasks = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#008080" />
+        <ActivityIndicator size="large" color="#2D9CDB" />
       </View>
     );
   }
@@ -153,7 +153,7 @@ const CompletedTasks = ({ navigation }) => {
       {renderHeader()}
       {completedTasks.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="checkmark-done-circle-outline" size={64} color="#008080" />
+          <Ionicons name="checkmark-done-circle-outline" size={64} color="#2D9CDB" />
           <Text style={styles.emptyText}>No hay tareas finalizadas</Text>
         </View>
       ) : (
@@ -171,7 +171,7 @@ const CompletedTasks = ({ navigation }) => {
                   onPress={() => confirmReopenTask(item.id)}
                   style={styles.reopenButton}
                 >
-                  <Ionicons name="refresh" size={20} color="#008080" />
+                  <Ionicons name="refresh" size={20} color="#2D9CDB" />
                 </TouchableOpacity>
               </View>
               <Text style={styles.taskText}>Descripción: {item.descripcion}</Text>
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#008080',
+    color: '#2D9CDB',
   },
   sortButton: {
     padding: 5,
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#008080',
+    color: '#2D9CDB',
     flex: 1,
   },
   reopenButton: {
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   noteTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#008080',
+    color: '#2D9CDB',
     marginBottom: 5,
   },
   noteText: {
