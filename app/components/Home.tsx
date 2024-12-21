@@ -37,14 +37,17 @@ interface HomeProps {
   setUser: (user: null) => void;
 }
 
+// Helper type for combined Task types
+type CombinedTask = (Task | SharedTask) & { fecha: Date };
+
 const Home = ({ setUser }: HomeProps) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [tasks, setTasks] = useState<(Task | SharedTask)[]>([]);
+  const [tasks, setTasks] = useState<CombinedTask[]>([]);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [currentTask, setCurrentTask] = useState<Task>(initialTaskState);
+  const [currentTask, setCurrentTask] = useState<Task>({ ...initialTaskState, fecha: new Date() });
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('fecha');
@@ -108,7 +111,7 @@ const Home = ({ setUser }: HomeProps) => {
       }));
 
       const activeTasks = [...processedTasks, ...processedSharedTasks]
-        .filter(task => task.estado !== 'finalizada');
+        .filter(task => task.estado !== 'finalizada') as CombinedTask[];
 
       setTasks(activeTasks);
     } catch (error) {
@@ -122,13 +125,11 @@ const Home = ({ setUser }: HomeProps) => {
       const hasPermission = await setupNotifications();
       if (!hasPermission) return null;
 
-      // Cancelar notificaciones existentes para esta tarea
       await cancelExistingNotification(task.id);
 
       const taskDate = new Date(task.fecha);
       const notificationDate = calculateNotificationDate(taskDate, task.notificacion);
       
-      // Si la fecha de notificación ya pasó, no programamos
       if (notificationDate.getTime() <= Date.now()) {
         console.log('Fecha de notificación ya pasada:', notificationDate);
         return null;
@@ -137,14 +138,12 @@ const Home = ({ setUser }: HomeProps) => {
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
           title: '📅 Tarea Pendiente',
-          body: `"${task.nombre}" vence ${formatRelativeDate(taskDate)}`,
+          body: `${task.nombre} vence ${formatRelativeDate(taskDate)}`,
           data: { taskId: task.id },
           sound: true,
           priority: 'high',
         },
-        trigger: {
-          date: notificationDate,
-        },
+        trigger: notificationDate,
       });
 
       console.log('Notificación programada:', {
@@ -241,7 +240,7 @@ const Home = ({ setUser }: HomeProps) => {
       }
 
       setShowTaskModal(false);
-      setCurrentTask(initialTaskState);
+      setCurrentTask({ ...initialTaskState, fecha: new Date() });
       setEditingTaskId(null);
       await loadTasks();
       
@@ -256,14 +255,13 @@ const Home = ({ setUser }: HomeProps) => {
     return [...tasks]
       .filter(task => {
         const searchLower = searchQuery.toLowerCase();
-        const taskDate = task.fecha instanceof Date ? task.fecha : new Date(task.fecha);
         return (
           task.nombre.toLowerCase().includes(searchLower) ||
-          taskDate.toLocaleDateString().includes(searchQuery)
+          task.fecha.toLocaleDateString().includes(searchQuery)
         );
       })
       .sort((a, b) => {
-        const getSortValue = (task: Task | SharedTask) => {
+        const getSortValue = (task: CombinedTask) => {
           switch (sortBy) {
             case 'nombre':
               return task.nombre;
@@ -277,7 +275,7 @@ const Home = ({ setUser }: HomeProps) => {
               return prioridadOrder[task.prioridad];
             case 'fecha':
             default:
-              return task.fecha instanceof Date ? task.fecha.getTime() : new Date(task.fecha).getTime();
+              return task.fecha.getTime();
           }
         };
 
@@ -297,7 +295,7 @@ const Home = ({ setUser }: HomeProps) => {
   }, [tasks, searchQuery, sortBy, sortDirection]);
 
   const handleAddTask = () => {
-    setCurrentTask(initialTaskState);
+    setCurrentTask({ ...initialTaskState, fecha: new Date() });
     setEditingTaskId(null);
     setShowTaskModal(true);
   };
@@ -306,14 +304,14 @@ const Home = ({ setUser }: HomeProps) => {
     setSortBy(newSortBy);
     setSortDirection(prev => (sortBy === newSortBy ? (prev === 'asc' ? 'desc' : 'asc') : 'desc'));
   };
+
   const handleEditTask = (taskId: string) => {
     const taskToEdit = tasks.find(task => task.id === taskId);
     if (taskToEdit) {
-      // Asegurarse de que la tarea tenga todos los campos necesarios
       const editableTask: Task = {
-        ...initialTaskState, // Asegura valores por defecto
+        ...initialTaskState,
         ...taskToEdit,
-        fecha: taskToEdit.fecha instanceof Date ? taskToEdit.fecha : new Date(taskToEdit.fecha),
+        fecha: taskToEdit.fecha,
         notificacion: taskToEdit.notificacion || {
           tipo: 'mismo-dia',
           hora: new Date(),
@@ -325,6 +323,7 @@ const Home = ({ setUser }: HomeProps) => {
       setShowTaskModal(true);
     }
   };
+
   const handleDeleteTask = async (taskId: string) => {
     try {
       await TaskService.deleteTask(taskId);
@@ -338,12 +337,12 @@ const Home = ({ setUser }: HomeProps) => {
   const handleOpenNotes = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (task) {
-      setCurrentTask(task);
+      setCurrentTask(task as Task);
       setShowNotesModal(true);
     }
   };
 
-const handleSaveNotes = async () => {
+  const handleSaveNotes = async () => {
     try {
       if (!currentTask.id) {
         throw new Error('ID de tarea no válido');
@@ -376,8 +375,6 @@ const handleSaveNotes = async () => {
     setUser(null);
   };
 
-  const sortedAndFilteredTasks = filterAndSortTasks();
-  
   return (
     <SafeAreaView style={styles.container}>
       <Header 
