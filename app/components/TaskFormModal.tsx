@@ -240,7 +240,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
           {showDatePicker && (
             <DateTimePicker
-            value={ensureDate(currentTask.notificacion?.hora)}
+              value={ensureDate(currentTask.fecha)} // Asegúrate de que siempre sea un objeto Date válido
               mode="date"
               display="default"
               onChange={(event, selectedDate) => {
@@ -252,19 +252,19 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
             />
           )}
 
-          {showTimePicker && (
-            <DateTimePicker
-              value={currentTask.notificacion?.hora || new Date()}
-              mode="time"
-              display="default"
-              onChange={(event, selectedDate) => {
-                setShowTimePicker(false);
-                if (selectedDate) {
-                  updateNotificacion('hora', selectedDate);
-                }
-              }}
-            />
-          )}
+              {showTimePicker && (
+                <DateTimePicker
+                  value={ensureDate(currentTask.notificacion?.hora)} // Asegúrate de que siempre sea un objeto Date válido
+                  mode="time"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowTimePicker(false);
+                    if (selectedDate) {
+                      updateNotificacion('hora', selectedDate);
+                    }
+                  }}
+                />
+              )}
 
           <View style={styles.modalButtons}>
             <TouchableOpacity

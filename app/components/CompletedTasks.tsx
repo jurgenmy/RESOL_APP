@@ -1,5 +1,3 @@
-//CompletedTasks.tsx
-
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -19,9 +17,11 @@ import {
   getDocs, 
   updateDoc,
   doc,
-  orderBy
+  orderBy,
+  Timestamp
 } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
+import { TaskService } from '../services/TaskService';
 
 interface Task {
   id: string;
@@ -32,6 +32,9 @@ interface Task {
   prioridad: string;
   fecha: Date;
   nota?: string;
+  isSharedTask?: boolean;
+  sharedBy?: string;
+  sharedByName?: string;
 }
 
 const CompletedTasks = ({ navigation }) => {
@@ -44,6 +47,7 @@ const CompletedTasks = ({ navigation }) => {
   const fetchCompletedTasks = async () => {
     if (user) {
       try {
+        // Fetch regular completed tasks
         const tasksRef = collection(FIREBASE_DB, 'tasks');
         const q = query(
           tasksRef, 
@@ -53,13 +57,39 @@ const CompletedTasks = ({ navigation }) => {
         );
         
         const querySnapshot = await getDocs(q);
-        const tasks = querySnapshot.docs.map(doc => ({
+        const regularTasks = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
-          fecha: doc.data().fecha.toDate()
+          fecha: doc.data().fecha.toDate(),
+          isSharedTask: false
         })) as Task[];
+
+        // Fetch shared completed tasks
+        const sharedTasks = await TaskService.fetchSharedTasks(user.uid);
+        const completedSharedTasks = sharedTasks
+          .filter(task => task.estado === 'finalizada')
+          .map(task => ({
+            id: task.id,
+            nombre: task.nombre,
+            descripcion: task.descripcion,
+            resolucion: task.resolucion,
+            estado: task.estado,
+            prioridad: task.prioridad,
+            fecha: task.fecha instanceof Timestamp ? task.fecha.toDate() : new Date(task.fecha),
+            nota: task.nota,
+            isSharedTask: true,
+            sharedBy: task.sharedBy,
+          })) as Task[];
+
+        // Combine and sort all tasks
+        const allTasks = [...regularTasks, ...completedSharedTasks].sort((a, b) => {
+          if (sortOrder === 'desc') {
+            return b.fecha.getTime() - a.fecha.getTime();
+          }
+          return a.fecha.getTime() - b.fecha.getTime();
+        });
         
-        setCompletedTasks(tasks);
+        setCompletedTasks(allTasks);
       } catch (error) {
         Alert.alert('Error', 'No se pudieron cargar las tareas completadas');
         console.error('Error fetching completed tasks:', error);
@@ -79,12 +109,18 @@ const CompletedTasks = ({ navigation }) => {
     fetchCompletedTasks();
   }, []);
 
-  const reopenTask = async (taskId: string) => {
+  const reopenTask = async (taskId: string, isSharedTask: boolean) => {
     try {
-      const taskRef = doc(FIREBASE_DB, 'tasks', taskId);
-      await updateDoc(taskRef, {
-        estado: 'en proceso'
-      });
+      if (isSharedTask) {
+        await TaskService.updateSharedTask(taskId, {
+          estado: 'en proceso'
+        });
+      } else {
+        const taskRef = doc(FIREBASE_DB, 'tasks', taskId);
+        await updateDoc(taskRef, {
+          estado: 'en proceso'
+        });
+      }
       Alert.alert('Éxito', 'La tarea ha sido reabierta');
       fetchCompletedTasks();
     } catch (error) {
@@ -93,7 +129,7 @@ const CompletedTasks = ({ navigation }) => {
     }
   };
 
-  const confirmReopenTask = (taskId: string) => {
+  const confirmReopenTask = (taskId: string, isSharedTask: boolean) => {
     Alert.alert(
       'Reabrir Tarea',
       '¿Estás seguro de que deseas reabrir esta tarea?',
@@ -104,7 +140,7 @@ const CompletedTasks = ({ navigation }) => {
         },
         {
           text: 'Sí, reabrir',
-          onPress: () => reopenTask(taskId)
+          onPress: () => reopenTask(taskId, isSharedTask)
         }
       ]
     );
@@ -168,12 +204,17 @@ const CompletedTasks = ({ navigation }) => {
               <View style={styles.taskHeader}>
                 <Text style={styles.taskTitle}>{item.nombre}</Text>
                 <TouchableOpacity 
-                  onPress={() => confirmReopenTask(item.id)}
+                  onPress={() => confirmReopenTask(item.id, item.isSharedTask || false)}
                   style={styles.reopenButton}
                 >
                   <Ionicons name="refresh" size={20} color="#2D9CDB" />
                 </TouchableOpacity>
               </View>
+              {item.isSharedTask && item.sharedByName && (
+                <Text style={styles.sharedByText}>
+                  Compartida por: {item.sharedByName}
+                </Text>
+              )}
               <Text style={styles.taskText}>Descripción: {item.descripcion}</Text>
               <Text style={styles.taskText}>Resolución: {item.resolucion}</Text>
               <View style={styles.priorityContainer}>
@@ -261,6 +302,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2D9CDB',
     flex: 1,
+  },
+  sharedByText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    marginBottom: 8,
   },
   reopenButton: {
     padding: 5,

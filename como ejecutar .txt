@@ -1,0 +1,24 @@
+* Instalar node.js https://nodejs.org/en
+* En powershell como admin ejecutar: 
+
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
+* Registrarse en https://expo.dev/
+
+* En cmd o powershell ejecutar:
+
+git clone https://github.com/jurgenmy/RESOL_APP
+
+* Abrir IDE en el directorio que se clono
+
+* En terminal, colocar:
+
+npm install
+
+npm start
+
+(Acá pedirá credenciales de expo, colocar correo y la contraseña 2 veces)
+
+* Escanear código QR y ejecutar la app en un celular Android. (Utilizando app Expo Go)
+
+
