@@ -37,7 +37,7 @@ interface Task {
   sharedByName?: string;
 }
 
-const CompletedTasks = ({ navigation }) => {
+const CompletedTasks = () => {
   const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

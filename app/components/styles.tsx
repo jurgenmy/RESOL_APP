@@ -3,10 +3,7 @@
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-      },
+   
       loadingContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -253,11 +250,6 @@ export const styles = StyleSheet.create({
       inputError: {
         borderColor: 'red',
       },
-      errorText: {
-        color: 'red',
-        fontSize: 12,
-        marginBottom: 8,
-      },
       togglePasswordButton: {
         padding: 12,
         alignItems: 'center',
@@ -268,6 +260,70 @@ export const styles = StyleSheet.create({
       },
       disabledButton: {
         opacity: 0.5,
-      }
+      },container: {
+        flex: 1,
+        backgroundColor: '#f5f5f5',
+        },
+        centerContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5',
+        padding: 20,
+        },
+        list: {
+        flex: 1,
+        },
+        listContent: {
+        padding: 10,
+        paddingBottom: 90,
+        },
+        emptyState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 40,
+        },
+        emptyStateText: {
+        fontSize: 16,
+        color: '#666',
+        marginBottom: 20,
+        textAlign: 'center',
+        },
+        emptyStateButton: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 8,
+        },
+        emptyStateButtonText: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: '500',
+        },
+        errorText: {
+        color: '#FF3B30',
+        fontSize: 16,
+        marginBottom: 20,
+        textAlign: 'center',
+        },
+        retryButton: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 8,
+        },
+        retryButtonText: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: '500',
+        },loadingOverlay: {
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        
+      
       
 });

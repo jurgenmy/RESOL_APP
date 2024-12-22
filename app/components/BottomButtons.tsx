@@ -31,12 +31,13 @@ const BottomButtons = ({ onCompletedPress, onAddPress }: BottomButtonsProps) => 
       </TouchableOpacity>
 
       <TouchableOpacity 
-        onPress={onCompletedPress} 
-        style={styles.button}
-      >
-        <Feather name="check-circle" size={24} color="#FFFFFF" />
-        <Text style={styles.buttonText}>Finalizadas</Text>
-      </TouchableOpacity>
+  onPress={() => navigation.navigate('CompletedTasks')} 
+  style={styles.button}
+>
+  <Feather name="check-circle" size={24} color="#FFFFFF" />
+  <Text style={styles.buttonText}>Finalizadas</Text>
+</TouchableOpacity>
+
       
       <TouchableOpacity 
         onPress={onAddPress} 

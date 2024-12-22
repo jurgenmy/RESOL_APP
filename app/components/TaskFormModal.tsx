@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, Alert } fro
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
+import { Timestamp } from 'firebase/firestore';
 
 interface Task {
   id: string;
@@ -11,7 +12,7 @@ interface Task {
   resolucion: string;
   estado: string;
   prioridad: string;
-  fecha: Date;
+  fecha: Date | Timestamp;
   nota?: string;
   notificacion?: {
     tipo: "mismo-dia" | "dias-antes";
@@ -62,26 +63,39 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
 
   // Ensure notification object is properly initialized
-  const ensureDate = (date: Date | undefined): Date => {
-    if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
-      return new Date();
+  function ensureDate(value: Date | Timestamp | undefined): Date {
+    if (!value) return new Date(); // Retorna la fecha actual si `value` es undefined.
+    if (value instanceof Date) return value; // Si ya es un `Date`, lo retorna.
+    if (typeof (value as Timestamp).toDate === 'function') {
+      return (value as Timestamp).toDate(); // Convierte `Timestamp` a `Date`.
     }
-    return date;
-  };
+    throw new Error('Invalid date format'); // Lanza un error si el formato no es válido.
+  }
+  
 
   const ensureNotification = () => {
-    if (!currentTask.notificacion || !(currentTask.notificacion.hora instanceof Date)) {
+    if (!currentTask.notificacion) {
       setTask(prevTask => ({
         ...prevTask,
         notificacion: {
+          tipo: 'mismo-dia',
+          hora: new Date(),
+          diasAntes: 0,
+        },
+      }));
+    } else if (!(currentTask.notificacion.hora instanceof Date)) {
+      setTask(prevTask => ({
+        ...prevTask,
+        notificacion: {
+          ...(prevTask.notificacion || {}), // Asegurarte de que `notificacion` exista
           tipo: prevTask.notificacion?.tipo || 'mismo-dia',
-          hora: ensureDate(prevTask.notificacion?.hora),
-          diasAntes: prevTask.notificacion?.diasAntes || 0
-        }
+          hora: ensureDate(currentTask.notificacion?.hora),
+        },
       }));
     }
   };
-
+  
+  
   const handleSave = () => {
     if (!currentTask.nombre?.trim()) {
       Alert.alert('Error', 'El nombre de la tarea es requerido');
@@ -131,12 +145,14 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
   // Format time with a fallback
   const formatTime = (date: Date | undefined): string => {
     const validDate = ensureDate(date);
-    try {
-      return validDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch (error) {
-      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
+    return validDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+  
+  const formatDate = (date: Date | undefined): string => {
+    const validDate = ensureDate(date);
+    return validDate.toLocaleDateString();
+  };
+  
 
   return (
     <Modal
@@ -199,9 +215,11 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
             style={[styles.button, { backgroundColor: '#4A90E2' }]}
             onPress={() => setShowDatePicker(true)}
           >
-            <Text style={styles.buttonText}>
-              Fecha: {currentTask.fecha.toLocaleDateString()}
+           <Text style={styles.buttonText}>
+               Fecha: {formatDate(currentTask.fecha instanceof Date ? currentTask.fecha : currentTask.fecha.toDate())}
             </Text>
+
+
           </TouchableOpacity>
 
           <View style={styles.notificationSection}>
@@ -239,32 +257,32 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({
           </View>
 
           {showDatePicker && (
-            <DateTimePicker
-              value={ensureDate(currentTask.fecha)} // Asegúrate de que siempre sea un objeto Date válido
-              mode="date"
-              display="default"
-              onChange={(event, selectedDate) => {
-                setShowDatePicker(false);
-                if (selectedDate) {
-                  updateTaskField('fecha', selectedDate);
-                }
-              }}
-            />
+          <DateTimePicker
+          value={ensureDate(currentTask.fecha)}
+          mode="date"
+          display="default"
+          onChange={(event, selectedDate) => {
+            setShowDatePicker(false);
+            if (selectedDate) {
+              updateTaskField('fecha', selectedDate);
+            }
+          }}
+        />
           )}
 
-              {showTimePicker && (
-                <DateTimePicker
-                  value={ensureDate(currentTask.notificacion?.hora)} // Asegúrate de que siempre sea un objeto Date válido
-                  mode="time"
-                  display="default"
-                  onChange={(event, selectedDate) => {
-                    setShowTimePicker(false);
-                    if (selectedDate) {
-                      updateNotificacion('hora', selectedDate);
-                    }
-                  }}
-                />
-              )}
+          {showTimePicker && (
+            <DateTimePicker
+            value={ensureDate(currentTask.notificacion?.hora)}
+            mode="time"
+            display="default"
+            onChange={(event, selectedDate) => {
+              setShowTimePicker(false);
+              if (selectedDate) {
+                updateNotificacion('hora', selectedDate);
+              }
+            }}
+          />
+          )}
 
           <View style={styles.modalButtons}>
             <TouchableOpacity

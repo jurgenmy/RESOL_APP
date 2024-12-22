@@ -8,7 +8,7 @@ import { FIREBASE_AUTH } from './FirebaseConfig';
 
 // Screens
 import Login from './app/components/Login';
-import Home from './app/components/Home';
+import Home from './app/components/HomeScreen';
 import RegisterUser from './app/components/RegisterUser';
 import CompletedTasks from './app/components/CompletedTasks';
 import ProfileScreen from './app/components/profile/ProfileScreen';

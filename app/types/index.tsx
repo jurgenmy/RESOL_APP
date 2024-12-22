@@ -1,5 +1,5 @@
 // types/index.tsx
-
+import { Timestamp } from "firebase/firestore";
 export interface Task {
     id: string;
     nombre: string;
@@ -7,7 +7,7 @@ export interface Task {
     resolucion: string;
     estado: string;
     prioridad: string;
-    fecha: Date;
+     fecha: Date | Timestamp;
     nota?: string;
     notificacion?: {
       tipo: 'mismo-dia' | 'dias-antes';
