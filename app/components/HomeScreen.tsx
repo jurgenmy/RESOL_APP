@@ -1,4 +1,3 @@
-// HomeScreen.tsx
 import React from 'react';
 import { View, FlatList, StyleSheet, SafeAreaView, Alert, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -28,6 +27,7 @@ type RootStackParamList = {
 
 interface HomeProps {
   setUser: (user: null) => void;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Home'>;
 }
 
 type CombinedTask = (Task | SharedTask) & { fecha: Date };
@@ -48,7 +48,7 @@ interface HomeState {
 }
 
 export class HomeScreen extends React.Component<HomeProps, HomeState> {
-  navigation: any;
+  private unsubscribeFocus: (() => void) | null = null;
 
   constructor(props: HomeProps) {
     super(props);
@@ -68,8 +68,19 @@ export class HomeScreen extends React.Component<HomeProps, HomeState> {
     };
   }
 
-  async componentDidMount() {
-    await this.initializeApp();
+  componentDidMount() {
+    this.initializeApp();
+    // Set up the focus listener using the navigation prop
+    this.unsubscribeFocus = this.props.navigation.addListener('focus', () => {
+      this.loadTasks();
+    });
+  }
+
+  componentWillUnmount() {
+    // Clean up the focus listener
+    if (this.unsubscribeFocus) {
+      this.unsubscribeFocus();
+    }
   }
 
   componentDidUpdate(prevProps: HomeProps, prevState: HomeState) {
@@ -434,11 +445,10 @@ export class HomeScreen extends React.Component<HomeProps, HomeState> {
         />
   
         <BottomButtons
-          onCompletedPress={() => this.navigation.navigate('CompletedTasks')}
+          onCompletedPress={() => this.props.navigation.navigate('CompletedTasks')}
           onAddPress={this.handleAddTask}
         />
   
-        {/* Indicador de carga superpuesto */}
         {isLoading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#fff" />
@@ -449,11 +459,10 @@ export class HomeScreen extends React.Component<HomeProps, HomeState> {
   }
 }
 
-// Tipo de navegación
 declare global {
-namespace ReactNavigation {
-interface RootParamList extends RootStackParamList {}
-}
+  namespace ReactNavigation {
+    interface RootParamList extends RootStackParamList {}
+  }
 }
 
 export default HomeScreen;
