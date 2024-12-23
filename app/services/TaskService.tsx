@@ -1,17 +1,4 @@
-import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  query, 
-  where, 
-  getDoc, 
-  arrayUnion, 
-  setDoc,
-  Timestamp 
-} from 'firebase/firestore';
+import { collection,  addDoc, getDocs, updateDoc, deleteDoc, doc, query,  where,  getDoc,  arrayUnion,  setDoc, Timestamp } from 'firebase/firestore';
 import { FIREBASE_DB } from '../../FirebaseConfig';
 import { writeBatch } from 'firebase/firestore';
 
@@ -85,7 +72,7 @@ export class TaskService {
       const tasksRef = collection(FIREBASE_DB, 'tasks');
       const q = query(tasksRef, where('userId', '==', userId));
       const querySnapshot = await getDocs(q);
-
+  
       return querySnapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -100,7 +87,13 @@ export class TaskService {
           userId: data.userId,
           isShared: data.isShared || false,
           sharedWith: data.sharedWith || [],
-          sharedWithGroup: data.sharedWithGroup || null
+          sharedWithGroup: data.sharedWithGroup || null,
+          notificacion: data.notificacion
+            ? {
+                ...data.notificacion,
+                hora: convertTimestampToDate(data.notificacion.hora),
+              }
+            : null,
         };
       });
     } catch (error) {
