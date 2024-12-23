@@ -61,8 +61,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#2D9CDB',
     paddingVertical: 2,
     paddingHorizontal: 16,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
